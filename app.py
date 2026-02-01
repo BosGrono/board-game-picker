@@ -40,7 +40,7 @@ try:
                 time.sleep(2)
                 winner = random.choice(virtual_bag)
                 st.balloons()
-                st.header(f"The winner is: **{winner}**!")
+                st.header(f"Game selected: **{winner}**!")
         else:
             st.warning("The bag is empty!")
 
