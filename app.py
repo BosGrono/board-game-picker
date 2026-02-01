@@ -3,61 +3,78 @@ import pandas as pd
 import random
 import time
 
-st.set_page_config(page_title="Game Night", page_icon="🎲")
+# 1. Page Config
+st.set_page_config(page_title="Game Night Picker", page_icon="🎲", layout="wide")
 
-# --- SETTINGS ---
-SHEET_ID = '1w2zW4_P2fPqE-BCjPaAJTWT7eoCksqUxnvyvfmgf5a8'
-# We add a random number to the end of the URL to force Google to give us fresh data
-import datetime
-cache_buster = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-SHEET_URL = f'https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv&gid=0&cb={cache_buster}'
+# --- USER SETTINGS ---
+SHEET_ID = '1w2zW4_P2fPqE-BCjPaAJTWT7eoCksqUxnvyvfmgf5a8' 
+# Find the GID at the end of your browser URL when clicking the correct tab
+TAB_GID = '0' 
 
-st.title("🎲 The Board Game Draw Bag")
+# The direct export link for a specific tab
+SHEET_URL = f'https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv&gid={TAB_GID}'
 
-# Use a very short cache time so updates show up quickly
-@st.cache_data(ttl=5)
-def get_data(url):
-    # We use 'on_bad_lines' to prevent crashing if the sheet has messy rows
-    return pd.read_csv(url, on_bad_lines='skip')
+# 2. Data Loading Function
+@st.cache_data(ttl=60) # Refreshes every minute if you update the sheet
+def load_data(url):
+    data = pd.read_csv(url)
+    data.columns = data.columns.str.strip() # Clean column names
+    return data
 
+# 3. Main App Logic
 try:
-    df = get_data(SHEET_URL)
-    df.columns = df.columns.str.strip() # Remove any hidden spaces
+    df = load_data(SHEET_URL)
+    
+    # Identify our columns
+    game_col = df.columns[0]  # Column A: Game
+    date_col = df.columns[1]  # Column B: Date Entered
+    chip_col = df.columns[2]  # Column C: Chips
 
-    # Let's be very explicit about finding the right columns
-    # We will look for names, but fall back to positions if names fail
-    game_col = 'Game' if 'Game' in df.columns else df.columns[0]
-    chip_col = 'Chips' if 'Chips' in df.columns else df.columns[2]
-
-    # Generate the "Virtual Bag"
+    # Build the Virtual Bag
     virtual_bag = []
-    for _, row in df.iterrows():
+    for index, row in df.iterrows():
+        name = str(row[game_col])
         try:
-            name = str(row[game_col])
             count = int(float(row[chip_col]))
-            virtual_bag.extend([name] * count)
         except:
-            continue
+            count = 1 # Default to 1 chip if column C is empty
+        virtual_bag.extend([name] * count)
 
-    # --- UI LAYOUT ---
-    st.sidebar.metric("Games Found", len(df))
+    # --- SIDEBAR ---
+    st.sidebar.header("📊 Library Stats")
+    st.sidebar.metric("Total Games", len(df))
     st.sidebar.metric("Total Chips", len(virtual_bag))
+    
+    # Simple logic to find the game with the most chips
+    most_chips = df[chip_col].max()
+    lucky_game = df[df[chip_col] == most_chips][game_col].iloc[0]
+    st.sidebar.info(f"🔥 **Highest Odds:** {lucky_game}")
 
-    if st.button("🎰 DRAW A GAME", use_container_width=True):
-        if virtual_bag:
-            with st.spinner('Spinning the wheel...'):
-                time.sleep(1)
-                winner = random.choice(virtual_bag)
-                st.balloons()
-                st.success(f"### The winner is: {winner}")
-        else:
-            st.warning("Bag is empty. Check your 'Chips' column!")
+    # --- MAIN UI ---
+    st.title("🎲 The Board Game Draw Bag")
+    st.write("Welcome to the weekly randomizer!")
+    
+    st.divider()
 
-    # This will show you EXACTLY what the app is reading
-    st.write("---")
-    st.subheader("Data Preview")
-    st.write("If the list below is wrong, the Sheet ID might be pointing to an old file.")
-    st.dataframe(df, hide_index=True)
+    col1, col2 = st.columns([1, 1])
+
+    with col1:
+        if st.button("🎰 DRAW A GAME", use_container_width=True):
+            if len(virtual_bag) > 0:
+                with st.spinner('Mixing the bag...'):
+                    time.sleep(2)
+                    winner = random.choice(virtual_bag)
+                    st.balloons()
+                    st.success("## WE ARE PLAYING...")
+                    st.header(f"✨ {winner} ✨")
+            else:
+                st.error("The bag is empty! Check your spreadsheet.")
+
+    with col2:
+        with st.expander("View Library & Odds"):
+            st.dataframe(df[[game_col, chip_col]], hide_index=True)
 
 except Exception as e:
-    st.error(f"Error: {e}")
+    st.error("Wait, we hit a snag!")
+    st.info(f"Make sure your SHEET_ID and TAB_GID are correct.")
+    st.write(f"Technical error: {e}")
