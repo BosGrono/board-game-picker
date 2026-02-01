@@ -34,7 +34,7 @@ try:
         virtual_bag.extend([name] * count)
 
     # 4. User Interface
-    st.write(f"Connected! Found **{len(df)}** games with **{len(virtual_bag)}** total chips.")
+    st.write(f"Found **{len(df)}** games with **{len(virtual_bag)}** total chips.")
     
     if st.button("🎰 Draw a Game!"):
         if len(virtual_bag) > 0:
