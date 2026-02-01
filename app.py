@@ -3,51 +3,82 @@ import pandas as pd
 import random
 import time
 
-st.set_page_config(page_title="Game Night Picker", page_icon="🎲")
-st.title("🎲 The Board Game Draw Bag")
+# 1. Page Config
+st.set_page_config(page_title="Game Night Picker", page_icon="🎲", layout="wide")
 
-SHEET_ID = '1w2zW4_P2fPqE-BCjPaAJTWT7eoCksqUxnvyvfmgf5a8'
-# We'll use a more direct export link
-SHEET_URL = f'https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv'
+# --- YOUR CUSTOM SETTINGS ---
+# Hardcoded your Sheet ID as requested
+SHEET_ID = '1w2zW4_P2fPqE-BCjPaAJTWT7eoCksqUxnvyvfmgf5a8' 
 
+# IMPORTANT: If it's still pulling the wrong tab, change '0' to the gid 
+# number found at the end of your browser URL.
+TAB_GID = '0' 
+
+SHEET_URL = f'https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv&gid={TAB_GID}'
+
+# 2. Data Loading
+@st.cache_data(ttl=60)
+def load_data(url):
+    data = pd.read_csv(url)
+    data.columns = data.columns.str.strip()
+    return data
+
+# 3. App Logic
 try:
-    # 1. Read the sheet
-    df = pd.read_csv(SHEET_URL)
+    df = load_data(SHEET_URL)
     
-    # 2. Clean up column names (remove hidden spaces and make lowercase for easy matching)
-    df.columns = df.columns.str.strip()
-    
-    # 3. Create the Virtual Bag
-    virtual_bag = []
-    
-    # We find the right columns even if they aren't exactly 'Game' or 'Chips'
-    # This looks for any column that STarts with 'Game' or 'Chip'
-    game_col = [c for c in df.columns if 'Game' in c][0]
-    chip_col = [c for c in df.columns if 'Chip' in c][0]
+    # Mapping your columns: A=Game, B=Date, C=Chips
+    game_col = df.columns[0]
+    chip_col = df.columns[2]
 
+    # Build the Virtual Bag
+    virtual_bag = []
     for index, row in df.iterrows():
         name = str(row[game_col])
-        # If the chip cell is empty, we treat it as 1
-        count = int(row[chip_col]) if pd.notnull(row[chip_col]) else 1
+        try:
+            # We use float then int to handle cases where chips might be 1.0
+            count = int(float(row[chip_col]))
+        except:
+            count = 1
         virtual_bag.extend([name] * count)
 
-    # 4. User Interface
-    st.write(f"Connected! Found **{len(df)}** games with **{len(virtual_bag)}** total chips.")
+    # --- SIDEBAR ---
+    st.sidebar.header("📊 Library Stats")
+    st.sidebar.metric("Total Games", len(df))
+    st.sidebar.metric("Total Chips", len(virtual_bag))
     
-    if st.button("🎰 Draw a Game!"):
-        if len(virtual_bag) > 0:
-            with st.spinner('Rummaging through the bag...'):
-                time.sleep(2)
-                winner = random.choice(virtual_bag)
-                st.balloons()
-                st.header(f"The winner is: **{winner}**!")
-        else:
-            st.warning("The bag is empty!")
+    if not df.empty:
+        most_chips = df[chip_col].max()
+        # Find the game(s) with the highest weight
+        top_games = df[df[chip_col] == most_chips][game_col].tolist()
+        st.sidebar.info(f"🔥 **Highest Odds:** {top_games[0]}")
 
-    with st.expander("View Full Library"):
-        st.dataframe(df)
+    # --- MAIN UI ---
+    st.title("🎲 The Board Game Draw Bag")
+    st.write("Making game night decisions easier (and slightly more dramatic).")
+    
+    st.divider()
+
+    col1, col2 = st.columns([1, 1])
+
+    with col1:
+        if st.button("🎰 DRAW A GAME", use_container_width=True):
+            if virtual_bag:
+                with st.spinner('Consulting the dice gods...'):
+                    time.sleep(2)
+                    winner = random.choice(virtual_bag)
+                    st.balloons()
+                    st.success("## THE CHOSEN ONE IS:")
+                    st.header(f"✨ {winner} ✨")
+            else:
+                st.error("The bag is empty! Please check Column C in your sheet.")
+
+    with col2:
+        with st.expander("View Full Library & Weights"):
+            # Show only the Game and Chips columns for a cleaner look
+            st.dataframe(df[[game_col, chip_col]], hide_index=True, use_container_width=True)
 
 except Exception as e:
-    st.error("Connection Error")
-    st.info(f"I see these columns in your sheet: {list(df.columns) if 'df' in locals() else 'None'}")
-    st.info(f"Technical details: {e}")
+    st.error("Connection Error!")
+    st.write("I found the spreadsheet, but I can't read the columns correctly.")
+    st.info(f"Technical error: {e}")
