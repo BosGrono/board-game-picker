@@ -9,8 +9,8 @@ st.title("🎲 The Board Game Draw Bag")
 
 # 2. Connect to Google Sheets
 # Replace the URL below with your actual Google Sheet URL
-SHEET_ID = '1w2zW4_P2fPqE-BCjPaAJTWT7eoCksqUxnvyvfmgf5a8'
-SHEET_URL = f'https://docs.google.com/spreadsheets/d/1w2zW4_P2fPqE-BCjPaAJTWT7eoCksqUxnvyvfmgf5a8/edit?gid=963174730#gid=963174730'
+SHEET_ID = 1w2zW4_P2fPqE-BCjPaAJTWT7eoCksqUxnvyvfmgf5a8
+SHEET_URL = https://docs.google.com/spreadsheets/d/1w2zW4_P2fPqE-BCjPaAJTWT7eoCksqUxnvyvfmgf5a8/edit?gid=963174730#gid=963174730
 
 try:
     # This reads the sheet and turns it into a "DataFrame" (like a mini-table in the app)
