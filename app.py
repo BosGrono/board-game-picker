@@ -41,7 +41,7 @@ try:
             with st.spinner('Rummaging through the bag...'):
                 time.sleep(2)
                 winner = random.choice(virtual_bag)
-                st.balloons()
+                st.toast('Great pick!', icon='🎲')
                 st.header(f"Game selected: **{winner}**!")
                 
                 # --- NEW: Link to Board Game Geek ---
