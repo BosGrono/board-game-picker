@@ -6,49 +6,48 @@ import time
 st.set_page_config(page_title="Game Night Picker", page_icon="🎲")
 st.title("🎲 The Board Game Draw Bag")
 
-# --- TRIPLE CHECK THIS ID ---
-# It should look something like: 1A2b3C4d5E6f7G8h9I0j
-SHEET_ID = '1w2zW4_P2fPqE-BCjPaAJTWT7eoCksqUxnvyvfmgf5a8' 
-
-# This is the most reliable "Public" CSV export link
+SHEET_ID = '1w2zW4_P2fPqE-BCjPaAJTWT7eoCksqUxnvyvfmgf5a8'
+# We'll use a more direct export link
 SHEET_URL = f'https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv'
 
-@st.cache_data(ttl=600) # This keeps the data for 10 mins so it's fast
-def load_data(url):
-    return pd.read_csv(url)
-
 try:
-    df = load_data(SHEET_URL)
-    df.columns = df.columns.str.strip() # Remove hidden spaces
+    # 1. Read the sheet
+    df = pd.read_csv(SHEET_URL)
     
-    # Identify columns by position if names are being tricky
-    # We assume Column A (index 0) is Game and Column C (index 2) is Chips
-    game_col = df.columns[0]
-    chip_col = df.columns[2]
-
+    # 2. Clean up column names (remove hidden spaces and make lowercase for easy matching)
+    df.columns = df.columns.str.strip()
+    
+    # 3. Create the Virtual Bag
     virtual_bag = []
+    
+    # We find the right columns even if they aren't exactly 'Game' or 'Chips'
+    # This looks for any column that STarts with 'Game' or 'Chip'
+    game_col = [c for c in df.columns if 'Game' in c][0]
+    chip_col = [c for c in df.columns if 'Chip' in c][0]
+
     for index, row in df.iterrows():
         name = str(row[game_col])
-        try:
-            # Convert chips to number, default to 1 if it's not a number
-            count = int(float(row[chip_col])) 
-        except:
-            count = 1
+        # If the chip cell is empty, we treat it as 1
+        count = int(row[chip_col]) if pd.notnull(row[chip_col]) else 1
         virtual_bag.extend([name] * count)
 
-    st.success(f"Successfully loaded {len(df)} games!")
+    # 4. User Interface
+    st.write(f"Connected! Found **{len(df)}** games with **{len(virtual_bag)}** total chips.")
     
     if st.button("🎰 Draw a Game!"):
-        with st.spinner('Rummaging...'):
-            time.sleep(1.5)
-            winner = random.choice(virtual_bag)
-            st.balloons()
-            st.header(f"The winner is: {winner}")
+        if len(virtual_bag) > 0:
+            with st.spinner('Rummaging through the bag...'):
+                time.sleep(2)
+                winner = random.choice(virtual_bag)
+                st.balloons()
+                st.header(f"The winner is: **{winner}**!")
+        else:
+            st.warning("The bag is empty!")
 
-    with st.expander("View Spreadsheet Data"):
-        st.write(df)
+    with st.expander("View Full Library"):
+        st.dataframe(df)
 
 except Exception as e:
-    st.error("Still hitting a wall!")
-    st.write(f"**Current URL being used:** {SHEET_URL}")
-    st.write(f"**Technical Error:** {e}")
+    st.error("Connection Error")
+    st.info(f"I see these columns in your sheet: {list(df.columns) if 'df' in locals() else 'None'}")
+    st.info(f"Technical details: {e}")
