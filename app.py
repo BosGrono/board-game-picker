@@ -6,7 +6,7 @@ import time
 st.set_page_config(page_title="Game Night Picker", page_icon="🎲")
 st.title("🎲 The Board Game Draw Bag")
 
-SHEET_ID = 'YOUR_SHEET_ID_HERE'
+SHEET_ID = '1w2zW4_P2fPqE-BCjPaAJTWT7eoCksqUxnvyvfmgf5a8'
 # We'll use a more direct export link
 SHEET_URL = f'https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv'
 
