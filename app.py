@@ -34,7 +34,7 @@ try:
         virtual_bag.extend([name] * count)
 
     # 4. User Interface
-    st.write(f"Connected! Found **{len(df)}** games with **{len(virtual_bag)}** total chips.")
+    st.write(f"Found **{len(df)}** games with **{len(virtual_bag)}** total chips.")
     
     if st.button("🎰 Draw a Game!"):
         if len(virtual_bag) > 0:
@@ -43,6 +43,14 @@ try:
                 winner = random.choice(virtual_bag)
                 st.balloons()
                 st.header(f"Game selected: **{winner}**!")
+                
+                # --- NEW DATA DISPLAY ---
+                winner_data = df[df[game_col] == winner].iloc[0]
+                
+                # Probability Calculation
+                winner_chips = int(winner_data[chip_col]) if pd.notnull(winner_data[chip_col]) else 1
+                prob = (winner_chips / len(virtual_bag)) * 100
+                st.caption(f"Probability of selection: {prob:.2f}% ({winner_chips} / {len(virtual_bag)} chips)")
                 
                 # --- NEW: Link to Board Game Geek ---
                 # Look up the BGG_ID for the winning game name
