@@ -21,19 +21,17 @@ try:
     virtual_bag = []
     
     # We find the right columns even if they aren't exactly 'Game' or 'Chips'
-    # This looks for any column that STarts with 'Game' or 'Chip'
     game_col = [c for c in df.columns if 'Game' in c][0]
     chip_col = [c for c in df.columns if 'Chip' in c][0]
-    # Find the BGG_ID column
     bgg_col = [c for c in df.columns if 'BGG_ID' in c][0]
+    
     # Find additional columns for metadata
     plays_col = [c for c in df.columns if 'Recorded Plays' in c][0]
     rating_col = [c for c in df.columns if 'Avg_Rating' in c][0]
     cat_col = [c for c in df.columns if 'Cataloguing' in c][0]
-    
+
     for index, row in df.iterrows():
         name = str(row[game_col])
-        # If the chip cell is empty, we treat it as 1
         count = int(row[chip_col]) if pd.notnull(row[chip_col]) else 1
         virtual_bag.extend([name] * count)
 
@@ -47,11 +45,6 @@ try:
                 winner = random.choice(virtual_bag)
                 st.balloons()
                 st.header(f"Game selected: **{winner}**!")
-                
-                # --- NEW: Link to Board Game Geek ---
-                # Look up the BGG_ID for the winning game name
-                winner_data = df[df[game_col] == winner].iloc[0]
-                bgg_id = winner_data[bgg_col]
                 
                 # --- NEW DATA DISPLAY ---
                 winner_data = df[df[game_col] == winner].iloc[0]
@@ -82,7 +75,6 @@ try:
                     bgg_url = f"https://boardgamegeek.com/boardgame/{int(bgg_id)}"
                     st.markdown(f"<h6>🔗 <a href='{bgg_url}'>View on BoardGameGeek</a></h6>", unsafe_allow_html=True)
                 # -----------------------
-                # ------------------------------------
                 
         else:
             st.warning("The bag is empty!")
