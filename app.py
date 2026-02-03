@@ -49,23 +49,18 @@ try:
         if wtp_chips >= 1:
             bags["Want To Play"].extend([name] * wtp_chips)
 
-    # 3. User Interface (Sidebar Agency)
-    st.sidebar.header("Selection Settings")
-    mode = st.sidebar.radio(
-        "Choose Selection Method:",
-        ["Roll the D20", "Primary Only", "Want To Play Only", "Archive Only", "Greatest Hits Only"]
+    # 3. USER AGENCY: Select Method (Now in the main body)
+    st.subheader("Selection Method")
+    mode = st.radio(
+        "Choose how you want to pick a game:",
+        ["Roll the D20", "Pick from Primary", "Pick from Want To Play", "Pick from Archive", "Pick from Greatest Hits"],
+        horizontal=True
     )
 
-    # Display counts in sidebar for transparency
-    st.sidebar.divider()
-    st.sidebar.write("**Bag Sizes (Chips):**")
-    for bag_name, contents in bags.items():
-        st.sidebar.write(f"- {bag_name}: {len(contents)}")
+    st.write("---")
 
-    st.write(f"Found **{len(df)}** games in your library.")
-    
     # 4. Drawing Logic
-    if st.button("🎰 Draw a Game!"):
+    if st.button("🎰 Draw a Game!", use_container_width=True):
         selected_bag_name = ""
         
         # Scenario A: User wants the Die to decide
@@ -77,12 +72,12 @@ try:
                 elif die_roll <= 16: selected_bag_name = "Want To Play"
                 elif die_roll <= 18: selected_bag_name = "Archive"
                 else: selected_bag_name = "Greatest Hits"
-                st.info(f"🎲 Rolled a **{die_roll}**! Drawing from the **{selected_bag_name}** bag.")
+                st.info(f"🎲 **D20 Result: {die_roll}** → Drawing from the **{selected_bag_name}** bag.")
         
         # Scenario B: User picked a specific bag
         else:
-            selected_bag_name = mode.replace(" Only", "")
-            st.info(f"Direct Draw: Drawing specifically from the **{selected_bag_name}** bag.")
+            # Strip the 'Pick from ' part to get the bag name
+            selected_bag_name = mode.replace("Pick from ", "")
 
         active_bag = bags[selected_bag_name]
 
@@ -121,7 +116,7 @@ try:
                 except Exception:
                     st.caption("Metadata display encountered a minor issue.")
         else:
-            st.warning(f"The {selected_bag_name} bag is empty!")
+            st.warning(f"The {selected_bag_name} bag is empty! Check your spreadsheet data.")
 
     with st.expander("View Full Library"):
         st.dataframe(df)
