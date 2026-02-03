@@ -33,17 +33,28 @@ try:
 
     for index, row in df.iterrows():
         name = str(row[game_col])
-        chips = int(row[chip_col]) if pd.notnull(row[chip_col]) else 1
-        wtp_val = row[wtp_col]
-        wtp_chips = int(wtp_val) if pd.notnull(wtp_val) and wtp_val >= 1 else 0
+        
+        # Safe numeric conversion for Chips
+        try:
+            chips = int(float(row[chip_col])) if pd.notnull(row[chip_col]) else 1
+        except:
+            chips = 1
+            
+        # Safe numeric conversion for WTP_Count
+        try:
+            wtp_val = row[wtp_col]
+            wtp_chips = int(float(wtp_val)) if pd.notnull(wtp_val) else 0
+        except:
+            wtp_chips = 0
+            
         catalog = str(row[cat_col]).strip()
 
-        # Add to Catalogue-based bags (Primary, Archive, Greatest Hits)
+        # Add to Catalogue-based bags
         if catalog in bags:
             bags[catalog].extend([name] * chips)
         
         # Add to Want To Play bag independently
-        if wtp_chips > 0:
+        if wtp_chips >= 1:
             bags["Want To Play"].extend([name] * wtp_chips)
 
     # 3. User Interface
@@ -58,7 +69,6 @@ try:
     if st.button("🎰 Draw a Game!"):
         selected_bag_name = ""
         
-        # Handle Die Roll or Manual Selection
         if mode == "Roll the D20":
             with st.spinner('Rolling D20...'):
                 time.sleep(1)
@@ -80,42 +90,21 @@ try:
                 st.balloons()
                 st.header(f"Game selected: **{winner}**!")
                 
-                # --- Metadata Display ---
+                # --- Metadata Display (with extra error protection) ---
                 winner_data = df[df[game_col] == winner].iloc[0]
                 
-                # Probability (Small Text)
-                w_chips = int(winner_data[wtp_col]) if selected_bag_name == "Want To Play" else int(winner_data[chip_col])
-                prob = (w_chips / len(active_bag)) * 100
-                st.caption(f"Probability of selection: {prob:.2f}% ({w_chips} / {len(active_bag)} chips)")
+                try:
+                    # Probability
+                    current_chips = winner_data[wtp_col] if selected_bag_name == "Want To Play" else winner_data[chip_col]
+                    w_chips = int(float(current_chips)) if pd.notnull(current_chips) else 1
+                    prob = (w_chips / len(active_bag)) * 100
+                    st.caption(f"Probability of selection: {prob:.2f}% ({w_chips} / {len(active_bag)} chips)")
 
-                # Conditional Plays
-                plays = winner_data[plays_col]
-                if pd.notnull(plays) and plays > 0:
-                    st.caption(f"Previous plays: {int(plays)}")
-
-                # Conditional Rating
-                rating = winner_data[rating_col]
-                if pd.notnull(rating):
-                    st.caption(f"Average Rating: {rating}")
-
-                # Catalogue Entry
-                catalogue = winner_data[cat_col]
-                if pd.notnull(catalogue):
-                    st.caption(f"Catalogue Entry: {catalogue}")
-
-                # Board Game Geek Link (Small)
-                bgg_id = winner_data[bgg_col]
-                if pd.notnull(bgg_id):
-                    bgg_url = f"https://boardgamegeek.com/boardgame/{int(bgg_id)}"
-                    st.markdown(f"<h6>🔗 <a href='{bgg_url}'>View on BoardGameGeek</a></h6>", unsafe_allow_html=True)
-        else:
-            st.warning(f"The {selected_bag_name} bag is empty!")
-
-    with st.expander("View Full Library"):
-        st.dataframe(df)
-
-except Exception as e:
-    st.error("Connection Error")
-    st.info(f"I see these columns in your sheet: {list(df.columns) if 'df' in locals() else 'None'}")
-    st.info(f"Technical details: {e}")
-    
+                    # Previous Plays (Safe conversion)
+                    plays_val = winner_data[plays_col]
+                    if pd.notnull(plays_val):
+                        try:
+                            plays_num = int(float(plays_val))
+                            if plays_num > 0:
+                                st.caption(f"Previous plays: {plays_num}")
+                                
