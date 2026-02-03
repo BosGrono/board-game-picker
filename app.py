@@ -7,68 +7,108 @@ st.set_page_config(page_title="Game Night Picker", page_icon="🎲")
 st.title("🎲 The Board Game Draw Bag")
 
 SHEET_ID = '1w2zW4_P2fPqE-BCjPaAJTWT7eoCksqUxnvyvfmgf5a8'
-# We'll use a more direct export link
 SHEET_URL = f'https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv'
 
 try:
-    # 1. Read the sheet
+    # 1. Read and Clean
     df = pd.read_csv(SHEET_URL)
-    
-    # 2. Clean up column names (remove hidden spaces and make lowercase for easy matching)
     df.columns = df.columns.str.strip()
     
-    # 3. Create the Virtual Bag
-    virtual_bag = []
-    
-    # We find the right columns even if they aren't exactly 'Game' or 'Chips'
-    # This looks for any column that STarts with 'Game' or 'Chip'
+    # Identify Columns
     game_col = [c for c in df.columns if 'Game' in c][0]
     chip_col = [c for c in df.columns if 'Chip' in c][0]
-    # Find the BGG_ID column
     bgg_col = [c for c in df.columns if 'BGG_ID' in c][0]
+    plays_col = [c for c in df.columns if 'Plays' in c][0]
+    rating_col = [c for c in df.columns if 'Avg_Rating' in c][0]
+    cat_col = [c for c in df.columns if 'Catalogue' in c][0]
+    wtp_col = [c for c in df.columns if 'WTP_Count' in c][0]
+
+    # 2. Build the Four Bags
+    bags = {
+        "Primary": [],
+        "Archive": [],
+        "Greatest Hits": [],
+        "Want To Play": []
+    }
 
     for index, row in df.iterrows():
         name = str(row[game_col])
-        # If the chip cell is empty, we treat it as 1
-        count = int(row[chip_col]) if pd.notnull(row[chip_col]) else 1
-        virtual_bag.extend([name] * count)
+        chips = int(row[chip_col]) if pd.notnull(row[chip_col]) else 1
+        wtp_chips = int(row[wtp_col]) if pd.notnull(row[wtp_col]) and row[wtp_col] >= 1 else 0
+        catalog = str(row[cat_col])
 
-    # 4. User Interface
-    st.write(f"Found **{len(df)}** games with **{len(virtual_bag)}** total chips.")
-    
+        # Assign to Catalogue Bags
+        if catalog in bags:
+            bags[catalog].extend([name] * chips)
+        
+        # Assign to Want To Play Bag (Independent of Catalogue)
+        if wtp_chips > 0:
+            bags["Want To Play"].extend([name] * wtp_chips)
+
+    # 3. User Interface: Selection Mode
+    st.sidebar.header("Selection Settings")
+    mode = st.sidebar.radio(
+        "Selection Mode",
+        ["Roll the D20", "Primary Only", "Want To Play Only", "Archive Only", "Greatest Hits Only"]
+    )
+
+    # 4. Drawing Logic
     if st.button("🎰 Draw a Game!"):
-        if len(virtual_bag) > 0:
-            with st.spinner('Rummaging through the bag...'):
-                time.sleep(2)
-                winner = random.choice(virtual_bag)
+        selected_bag_name = ""
+        die_roll = None
+
+        # Determine which bag to use
+        if mode == "Roll the D20":
+            with st.spinner('Rolling D20...'):
+                time.sleep(1)
+                die_roll = random.randint(1, 20)
+                if die_roll <= 10: selected_bag_name = "Primary"
+                elif die_roll <= 16: selected_bag_name = "Want To Play"
+                elif die_roll <= 18: selected_bag_name = "Archive"
+                else: selected_bag_name = "Greatest Hits"
+                st.info(f"🎲 Rolled a **{die_roll}**! Drawing from the **{selected_bag_name}** bag.")
+        else:
+            selected_bag_name = mode.replace(" Only", "")
+
+        active_bag = bags[selected_bag_name]
+
+        if len(active_bag) > 0:
+            with st.spinner(f'Rummaging through {selected_bag_name}...'):
+                time.sleep(1.5)
+                winner = random.choice(active_bag)
                 st.balloons()
                 st.header(f"Game selected: **{winner}**!")
                 
-                # --- NEW DATA DISPLAY ---
+                # --- Metadata Display ---
                 winner_data = df[df[game_col] == winner].iloc[0]
                 
-                # Probability Calculation
-                winner_chips = int(winner_data[chip_col]) if pd.notnull(winner_data[chip_col]) else 1
-                prob = (winner_chips / len(virtual_bag)) * 100
-                st.caption(f"Probability of selection: {prob:.2f}% ({winner_chips} / {len(virtual_bag)} chips)")
-                
-                # --- NEW: Link to Board Game Geek ---
-                # Look up the BGG_ID for the winning game name
-                winner_data = df[df[game_col] == winner].iloc[0]
+                # Probability Logic
+                w_chips = int(winner_data[wtp_col]) if selected_bag_name == "Want To Play" else int(winner_data[chip_col])
+                prob = (w_chips / len(active_bag)) * 100
+                st.caption(f"Bag: {selected_bag_name} | Probability: {prob:.2f}% ({w_chips} / {len(active_bag)} chips)")
+
+                plays = winner_data[plays_col]
+                if pd.notnull(plays) and plays > 0:
+                    st.caption(f"Previous plays: {int(plays)}")
+
+                rating = winner_data[rating_col]
+                if pd.notnull(rating):
+                    st.caption(f"Average Rating: {rating}")
+
+                catalogue = winner_data[cat_col]
+                if pd.notnull(catalogue):
+                    st.caption(f"Catalogue Entry: {catalogue}")
+
                 bgg_id = winner_data[bgg_col]
-                
                 if pd.notnull(bgg_id):
                     bgg_url = f"https://boardgamegeek.com/boardgame/{int(bgg_id)}"
-                    st.subheader(f"🔗 [View on BoardGameGeek]({bgg_url})")
-                # ------------------------------------
-                
+                    st.markdown(f"<h6>🔗 <a href='{bgg_url}'>View on BoardGameGeek</a></h6>", unsafe_allow_html=True)
         else:
-            st.warning("The bag is empty!")
+            st.warning(f"The {selected_bag_name} bag is empty!")
 
     with st.expander("View Full Library"):
         st.dataframe(df)
 
 except Exception as e:
     st.error("Connection Error")
-    st.info(f"I see these columns in your sheet: {list(df.columns) if 'df' in locals() else 'None'}")
     st.info(f"Technical details: {e}")
