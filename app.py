@@ -1,3 +1,5 @@
+#App code with bag selection radio buttons
+
 import streamlit as st
 import pandas as pd
 import random
@@ -6,110 +8,121 @@ import time
 st.set_page_config(page_title="Game Night Picker", page_icon="🎲")
 st.title("🎲 The Board Game Draw Bag")
 
-# --- Google Sheet Connection ---
 SHEET_ID = '1w2zW4_P2fPqE-BCjPaAJTWT7eoCksqUxnvyvfmgf5a8'
 SHEET_URL = f'https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv'
 
 try:
-    # 1. Fetch and Clean Data
+    # 1. Read and Clean
     df = pd.read_csv(SHEET_URL)
     df.columns = df.columns.str.strip()
+    
+    # Column Mapping
+    game_col = 'Game'
+    chip_col = 'Chips'
+    bgg_col = 'BGG_ID'
+    plays_col = 'Recorded Plays'
+    rating_col = 'Avg_Rating'
+    cat_col = 'Cataloguing'
+    wtp_col = 'WTP_Count'
 
-    # Define Column Names
-    game_col, chip_col, cat_col = 'Game', 'Chips', 'Cataloguing'
-    wtp_col, plays_col, rating_col, bgg_col = 'WTP_Count', 'Recorded Plays', 'Avg_Rating', 'BGG_ID'
-
-    # 2. Build the Bags
-    bags = {"Primary": [], "Archive": [], "Greatest Hits": [], "Want To Play": []}
+    # 2. Build the Four Bags
+    bags = {
+        "Primary": [],
+        "Archive": [],
+        "Greatest Hits": [],
+        "Want To Play": []
+    }
 
     for index, row in df.iterrows():
         name = str(row[game_col])
         try:
-            # Handle chips and WTP counts
             chips = int(float(row[chip_col])) if pd.notnull(row[chip_col]) else 1
-            wtp_chips = int(float(row[wtp_col])) if pd.notnull(row[wtp_col]) else 0
         except:
-            chips, wtp_chips = 1, 0
+            chips = 1
+        try:
+            wtp_val = row[wtp_col]
+            wtp_chips = int(float(wtp_val)) if pd.notnull(wtp_val) else 0
+        except:
+            wtp_chips = 0
             
-        # Add to the correct bag based on Cataloguing column
         catalog = str(row[cat_col]).strip()
         if catalog in bags:
             bags[catalog].extend([name] * chips)
-        
-        # Add to the WTP bag if it has extra chips
         if wtp_chips >= 1:
             bags["Want To Play"].extend([name] * wtp_chips)
 
-    # 3. UI Section
+    # 3. USER AGENCY: Select Method (Now in the main body)
     st.subheader("Selection Method")
     mode = st.radio(
         "Choose how you want to pick a game:",
         ["Roll the D20", "Pick from Primary", "Pick from Want To Play", "Pick from Archive", "Pick from Greatest Hits"],
         horizontal=True
     )
+
     st.write("---")
 
     # 4. Drawing Logic
     if st.button("🎰 Draw a Game!", use_container_width=True):
         selected_bag_name = ""
         
+        # Scenario A: User wants the Die to decide
         if mode == "Roll the D20":
             with st.spinner('Rolling D20...'):
-                time.sleep(0.5)
+                time.sleep(1)
                 die_roll = random.randint(1, 20)
                 if die_roll <= 10: selected_bag_name = "Primary"
                 elif die_roll <= 16: selected_bag_name = "Want To Play"
                 elif die_roll <= 18: selected_bag_name = "Archive"
                 else: selected_bag_name = "Greatest Hits"
-                st.info(f"🎲 **D20 Result: {die_roll}** → Drawing from **{selected_bag_name}**.")
+                st.info(f"🎲 **D20 Result: {die_roll}** → Drawing from the **{selected_bag_name}** bag.")
+        
+        # Scenario B: User picked a specific bag
         else:
+            # Strip the 'Pick from ' part to get the bag name
             selected_bag_name = mode.replace("Pick from ", "")
 
         active_bag = bags[selected_bag_name]
 
         if len(active_bag) > 0:
-            with st.spinner('Rummaging...'):
-                time.sleep(0.8)
+            with st.spinner(f'Rummaging through the {selected_bag_name} bag...'):
+                time.sleep(1.5)
                 winner = random.choice(active_bag)
                 st.balloons()
+                st.header(f"Game selected: **{winner}**!")
                 
-                st.header(f"Winner: {winner}!")
-                
-                # Retrieve metadata for the winning game
+                # --- Metadata Display ---
                 winner_data = df[df[game_col] == winner].iloc[0]
-                
-                # Calculate probability
-                c_key = wtp_col if selected_bag_name == "Want To Play" else chip_col
                 try:
-                    w_chips = int(float(winner_data[c_key])) if pd.notnull(winner_data[c_key]) else 1
+                    current_chips_val = winner_data[wtp_col] if selected_bag_name == "Want To Play" else winner_data[chip_col]
+                    w_chips = int(float(current_chips_val)) if pd.notnull(current_chips_val) else 1
                     prob = (w_chips / len(active_bag)) * 100
-                    st.write(f"Odds in {selected_bag_name} bag: **{prob:.2f}%**")
-                except:
-                    st.write(f"Drawn from the {selected_bag_name} bag.")
-                
-                # Show Stats
-                m1, m2, m3 = st.columns(3)
-                with m1:
-                    val = winner_data[plays_col]
-                    st.metric("Plays", int(float(val)) if pd.notnull(val) else 0)
-                with m2:
-                    val = winner_data[rating_col]
-                    st.metric("Rating", val if pd.notnull(val) else "N/A")
-                with m3:
-                    if pd.notnull(winner_data[bgg_col]):
-                        b_id = int(float(winner_data[bgg_col]))
-                        st.markdown(f"[BGG Link](https://boardgamegeek.com/boardgame/{b_id})")
+                    st.caption(f"Probability of selection: {prob:.2f}% ({w_chips} / {len(active_bag)} chips)")
+
+                    plays_val = winner_data[plays_col]
+                    if pd.notnull(plays_val):
+                        try:
+                            plays_num = int(float(plays_val))
+                            if plays_num > 0: st.caption(f"Previous plays: {plays_num}")
+                        except: pass
+
+                    rating = winner_data[rating_col]
+                    if pd.notnull(rating): st.caption(f"Average Rating: {rating}")
+
+                    catalogue = winner_data[cat_col]
+                    if pd.notnull(catalogue): st.caption(f"Catalogue Entry: {catalogue}")
+
+                    bgg_id = winner_data[bgg_col]
+                    if pd.notnull(bgg_id):
+                        bgg_url = f"https://boardgamegeek.com/boardgame/{int(float(bgg_id))}"
+                        st.markdown(f"<h6>🔗 <a href='{bgg_url}'>View on BoardGameGeek</a></h6>", unsafe_allow_html=True)
+                except Exception:
+                    st.caption("Metadata display encountered a minor issue.")
         else:
-            st.warning(f"The {selected_bag_name} bag is empty!")
+            st.warning(f"The {selected_bag_name} bag is empty! Check your spreadsheet data.")
 
-    # 5. Footer Information
-    st.write("---")
-    with st.expander("🎲 D20 Odds Breakdown"):
-        st.write("1-10: Primary | 11-16: WTP | 17-18: Archive | 19-20: G. Hits")
-        st.write("🟦"*10 + "🟧"*6 + "🟥"*2 + "🟩"*2)
-
-    with st.expander("View Library"):
+    with st.expander("View Full Library"):
         st.dataframe(df)
 
 except Exception as e:
-    st.error(f"App Error: {e}")
+    st.error("Connection Error")
+    st.info(f"Technical details: {e}")
