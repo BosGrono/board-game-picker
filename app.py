@@ -2,12 +2,27 @@ import streamlit as st
 import pandas as pd
 import random
 import time
+import requests
+import xml.etree.ElementTree as ET
 
 st.set_page_config(page_title="Game Night Picker", page_icon="🎲")
 st.title("🎲 The Board Game Draw Bag")
 
 SHEET_ID = '1w2zW4_P2fPqE-BCjPaAJTWT7eoCksqUxnvyvfmgf5a8'
 SHEET_URL = f'https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv'
+
+# --- NEW: Helper to get BGG Box Art ---
+def get_bgg_image(bgg_id):
+    try:
+        # BGG XML API v2
+        response = requests.get(f"https://boardgamegeek.com/xmlapi2/thing?id={bgg_id}")
+        if response.status_code == 200:
+            root = ET.fromstring(response.content)
+            image_url = root.find(".//image").text
+            return image_url
+    except:
+        return None
+    return None
 
 try:
     # 1. Read and Clean
@@ -82,42 +97,55 @@ try:
                 time.sleep(1.5)
                 winner = random.choice(active_bag)
                 st.balloons()
-                st.header(f"Game selected: **{winner}**!")
                 
-                # --- Metadata Display ---
+                # --- NEW: Layout for Box Art ---
                 winner_data = df[df[game_col] == winner].iloc[0]
-                try:
-                    current_chips_val = winner_data[wtp_col] if selected_bag_name == "Want To Play" else winner_data[chip_col]
-                    w_chips = int(float(current_chips_val)) if pd.notnull(current_chips_val) else 1
-                    prob = (w_chips / len(active_bag)) * 100
-                    st.caption(f"Probability of selection: {prob:.2f}% ({w_chips} / {len(active_bag)} chips)")
-
-                    plays_val = winner_data[plays_col]
-                    if pd.notnull(plays_val):
-                        try:
-                            plays_num = int(float(plays_val))
-                            if plays_num > 0: st.caption(f"Previous plays: {plays_num}")
-                        except: pass
-
-                    rating = winner_data[rating_col]
-                    if pd.notnull(rating): st.caption(f"Average Rating: {rating}")
-
-                    catalogue = winner_data[cat_col]
-                    if pd.notnull(catalogue): st.caption(f"Catalogue Entry: {catalogue}")
-
-                    bgg_id = winner_data[bgg_col]
+                bgg_id = winner_data[bgg_col]
+                
+                col_a, col_b = st.columns([1, 2])
+                
+                with col_a:
                     if pd.notnull(bgg_id):
-                        bgg_url = f"https://boardgamegeek.com/boardgame/{int(float(bgg_id))}"
-                        st.markdown(f"<h6>🔗 <a href='{bgg_url}'>View on BoardGameGeek</a></h6>", unsafe_allow_html=True)
-                except Exception:
-                    st.caption("Metadata display encountered a minor issue.")
+                        img_url = get_bgg_image(int(float(bgg_id)))
+                        if img_url:
+                            st.image(img_url, use_container_width=True)
+                        else:
+                            st.write("🖼️ (Image not found)")
+                
+                with col_b:
+                    st.header(f"Game selected: **{winner}**!")
+                    
+                    # --- Metadata Display ---
+                    try:
+                        current_chips_val = winner_data[wtp_col] if selected_bag_name == "Want To Play" else winner_data[chip_col]
+                        w_chips = int(float(current_chips_val)) if pd.notnull(current_chips_val) else 1
+                        prob = (w_chips / len(active_bag)) * 100
+                        st.caption(f"Probability of selection: {prob:.2f}% ({w_chips} / {len(active_bag)} chips)")
+
+                        plays_val = winner_data[plays_col]
+                        if pd.notnull(plays_val):
+                            try:
+                                plays_num = int(float(plays_val))
+                                if plays_num > 0: st.caption(f"Previous plays: {plays_num}")
+                            except: pass
+
+                        rating = winner_data[rating_col]
+                        if pd.notnull(rating): st.caption(f"Average Rating: {rating}")
+
+                        catalogue = winner_data[cat_col]
+                        if pd.notnull(catalogue): st.caption(f"Catalogue Entry: {catalogue}")
+
+                        if pd.notnull(bgg_id):
+                            bgg_url = f"https://boardgamegeek.com/boardgame/{int(float(bgg_id))}"
+                            st.markdown(f"<h6>🔗 <a href='{bgg_url}'>View on BoardGameGeek</a></h6>", unsafe_allow_html=True)
+                    except Exception:
+                        st.caption("Metadata display encountered a minor issue.")
         else:
             st.warning(f"The {selected_bag_name} bag is empty!")
 
     # --- BOTTOM OF SCREEN SECTION ---
     st.write("---")
     
-    # Distribution View (Collapsed by Default)
     with st.expander("🎲 View D20 Face Distribution"):
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("Primary", "10 Faces", "1-10")
