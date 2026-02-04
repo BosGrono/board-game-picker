@@ -15,15 +15,37 @@ def get_bgg_image(bgg_id):
     if not bgg_id or pd.isna(bgg_id): return None
     try:
         clean_id = str(int(float(bgg_id)))
-        headers = {'User-Agent': 'BoardGamePicker/3.0'}
+        # More descriptive headers often bypass BGG's blocks
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) BoardGamePicker/3.0',
+            'Referer': 'https://boardgamegeek.com'
+        }
         url = f"https://boardgamegeek.com/xmlapi2/thing?id={clean_id}"
-        resp = requests.get(url, headers=headers, timeout=5)
+        resp = requests.get(url, headers=headers, timeout=7)
+        
         if resp.status_code == 200:
             root = ET.fromstring(resp.content)
+            # Try specific item image path
             img = root.find(".//image")
-            return img.text if img is not None else None
-    except: pass
+            if img is not None:
+                return img.text
+            # Fallback to thumbnail if image is missing
+            thumb = root.find(".//thumbnail")
+            if thumb is not None:
+                return thumb.text
+    except Exception as e:
+        print(f"BGG Error: {e}")
     return None
+
+# ... inside your drawing logic where images are displayed ...
+
+            with c1:
+                if img: 
+                    # Use a caption to confirm we've got a live URL
+                    st.image(img, use_container_width=True)
+                else: 
+                    # If it fails, show the ID so we can verify it
+                    st.warning(f"ID {int(float(row['BGG_ID']))}: Image not found")
 
 try:
     df = pd.read_csv(SHEET_URL)
