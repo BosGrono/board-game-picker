@@ -59,21 +59,82 @@ try:
 
     st.write("---")
 
-    # 4. Drawing Logic
-    if st.button("🎰 Draw a Game!", use_container_width=True):
-        selected_bag_name = ""
-        
-        if mode == "Roll the D20":
-            with st.spinner('Rolling D20...'):
-                time.sleep(1)
-                die_roll = random.randint(1, 20)
-                if die_roll <= 10: selected_bag_name = "Primary"
-                elif die_roll <= 16: selected_bag_name = "Want To Play"
-                elif die_roll <= 18: selected_bag_name = "Archive"
-                else: selected_bag_name = "Greatest Hits"
-                st.info(f"🎲 **D20 Result: {die_roll}** → Drawing from the **{selected_bag_name}** bag.")
-        else:
-            selected_bag_name = mode.replace("Pick from ", "")
+   # --- 1. Initialize D20 Configuration in Session State ---
+if 'd20_config' not in st.session_state:
+    st.session_state.d20_config = {
+        "Primary": 10,
+        "Want To Play": 6,
+        "Archive": 2,
+        "Greatest Hits": 2
+    }
+
+# --- 2. Configuration Expander (The Agency) ---
+with st.expander("⚙️ Configure D20 Odds (Total must = 20)"):
+    cols = st.columns(4)
+    new_config = {}
+    
+    # Create inputs for each bag
+    for i, (bag_name, current_val) in enumerate(st.session_state.d20_config.items()):
+        new_config[bag_name] = cols[i].number_input(
+            bag_name, min_value=0, max_value=20, value=current_val, key=f"cfg_{bag_name}"
+        )
+    
+    total_faces = sum(new_config.values())
+    
+    if total_faces != 20:
+        st.error(f"Current total: {total_faces} faces. Please adjust to exactly 20.")
+        st.session_state.valid_config = False
+    else:
+        st.success("D20 Balanced!")
+        st.session_state.d20_config = new_config
+        st.session_state.valid_config = True
+
+# --- 3. Selection Method UI ---
+st.subheader("Selection Method")
+mode = st.radio(
+    "Choose how you want to pick a game:",
+    ["Roll the D20", "Pick from Primary", "Pick from Want To Play", "Pick from Archive", "Pick from Greatest Hits"],
+    horizontal=True
+)
+
+st.write("---")
+
+# --- 4. Drawing Logic (Dynamic) ---
+# Disable button if the D20 isn't balanced
+button_disabled = (mode == "Roll the D20" and not st.session_state.get('valid_config', True))
+
+if st.button("🎰 Draw a Game!", use_container_width=True, disabled=button_disabled):
+    selected_bag_name = ""
+    
+    if mode == "Roll the D20":
+        with st.spinner('Rolling D20...'):
+            time.sleep(1)
+            die_roll = random.randint(1, 20)
+            
+            # Dynamic Range Logic
+            # We calculate thresholds on the fly based on user inputs
+            cfg = st.session_state.d20_config
+            thresholds = {
+                "Primary": cfg["Primary"],
+                "Want To Play": cfg["Primary"] + cfg["Want To Play"],
+                "Archive": cfg["Primary"] + cfg["Want To Play"] + cfg["Archive"],
+                "Greatest Hits": 20
+            }
+            
+            if die_roll <= thresholds["Primary"]:
+                selected_bag_name = "Primary"
+            elif die_roll <= thresholds["Want To Play"]:
+                selected_bag_name = "Want To Play"
+            elif die_roll <= thresholds["Archive"]:
+                selected_bag_name = "Archive"
+            else:
+                selected_bag_name = "Greatest Hits"
+                
+            st.info(f"🎲 **D20 Result: {die_roll}** → Drawing from the **{selected_bag_name}** bag.")
+    else:
+        selected_bag_name = mode.replace("Pick from ", "")
+
+    # ... [Rest of your drawing logic remains the same] ...
 
         active_bag = bags[selected_bag_name]
 
