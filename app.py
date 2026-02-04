@@ -152,7 +152,7 @@ try:
             st.write("No games currently found in the Greatest Hits bag.")
 
     #Want To Play Expander
-    with st.expander("🧡 Want To Play"):
+    with st.expander("🔥 Want To Play"):
         # Filter for games that have at least 1 WTP chip
         wtp_display_df = df[pd.to_numeric(df[wtp_col], errors='coerce') >= 1].copy()
         wtp_display_df[rating_col] = pd.to_numeric(wtp_display_df[rating_col], errors='coerce')
@@ -168,7 +168,7 @@ try:
         else:
             st.write("No games currently in Want To Play.")
     
-    with st.expander("View Full Library"):
+    with st.expander("📒 View Full Library"):
         st.dataframe(df)
 
 except Exception as e:
