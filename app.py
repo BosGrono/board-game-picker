@@ -34,7 +34,6 @@ def get_bgg_image(bgg_id):
                     thumb_node = item.find("thumbnail")
                     if thumb_node is not None:
                         return thumb_node.text
-                return None
             elif response.status_code == 202:
                 time.sleep(1.5)
                 continue
@@ -91,7 +90,4 @@ try:
             with st.spinner('Rolling D20...'):
                 time.sleep(1)
                 die_roll = random.randint(1, 20)
-                if die_roll <= 10: selected_bag_name = "Primary"
-                elif die_roll <= 16: selected_bag_name = "Want To Play"
-                elif die_roll <= 18: selected_bag_name = "Archive"
-                else: selected_bag_name = "Greatest
+                if die_roll <= 10:
