@@ -11,21 +11,31 @@ st.title("🎲 The Board Game Draw Bag")
 SHEET_ID = '1w2zW4_P2fPqE-BCjPaAJTWT7eoCksqUxnvyvfmgf5a8'
 SHEET_URL = f'https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv'
 
-# --- NEW: Helper to get BGG Box Art ---
+# --- IMPROVED: Robust BGG Box Art Fetcher ---
 def get_bgg_image(bgg_id):
+    if not bgg_id or pd.isna(bgg_id):
+        return None
     try:
-        # BGG XML API v2
-        response = requests.get(f"https://boardgamegeek.com/xmlapi2/thing?id={bgg_id}")
+        # Use a timeout and headers to be more reliable
+        headers = {'User-Agent': 'StreamlitGamePicker/1.0'}
+        url = f"https://boardgamegeek.com/xmlapi2/thing?id={int(float(bgg_id))}"
+        response = requests.get(url, headers=headers, timeout=5)
+        
         if response.status_code == 200:
             root = ET.fromstring(response.content)
-            image_url = root.find(".//image").text
-            return image_url
-    except:
+            # Try to find 'image' first, then fallback to 'thumbnail'
+            image_node = root.find(".//image")
+            if image_node is not None:
+                return image_node.text
+            thumb_node = root.find(".//thumbnail")
+            if thumb_node is not None:
+                return thumb_node.text
+    except Exception as e:
+        print(f"BGG Fetch Error: {e}")
         return None
     return None
 
 try:
-    # 1. Read and Clean
     df = pd.read_csv(SHEET_URL)
     df.columns = df.columns.str.strip()
     
@@ -38,25 +48,17 @@ try:
     cat_col = 'Cataloguing'
     wtp_col = 'WTP_Count'
 
-    # 2. Build the Four Bags
-    bags = {
-        "Primary": [],
-        "Archive": [],
-        "Greatest Hits": [],
-        "Want To Play": []
-    }
+    # Build the Four Bags
+    bags = {"Primary": [], "Archive": [], "Greatest Hits": [], "Want To Play": []}
 
     for index, row in df.iterrows():
         name = str(row[game_col])
         try:
             chips = int(float(row[chip_col])) if pd.notnull(row[chip_col]) else 1
-        except:
-            chips = 1
-        try:
             wtp_val = row[wtp_col]
             wtp_chips = int(float(wtp_val)) if pd.notnull(wtp_val) else 0
         except:
-            wtp_chips = 0
+            chips, wtp_chips = 1, 0
             
         catalog = str(row[cat_col]).strip()
         if catalog in bags:
@@ -64,7 +66,7 @@ try:
         if wtp_chips >= 1:
             bags["Want To Play"].extend([name] * wtp_chips)
 
-    # 3. USER AGENCY: Selection Method
+    # UI: Selection Method
     st.subheader("Selection Method")
     mode = st.radio(
         "Choose how you want to pick a game:",
@@ -74,7 +76,6 @@ try:
 
     st.write("---")
 
-    # 4. Drawing Logic
     if st.button("🎰 Draw a Game!", use_container_width=True):
         selected_bag_name = ""
         
@@ -93,72 +94,57 @@ try:
         active_bag = bags[selected_bag_name]
 
         if len(active_bag) > 0:
-            with st.spinner(f'Rummaging through the {selected_bag_name} bag...'):
+            with st.spinner(f'Rummaging through the bag...'):
                 time.sleep(1.5)
                 winner = random.choice(active_bag)
                 st.balloons()
                 
-                # --- NEW: Layout for Box Art ---
+                # Fetch data and image
                 winner_data = df[df[game_col] == winner].iloc[0]
                 bgg_id = winner_data[bgg_col]
+                img_url = get_bgg_image(bgg_id)
                 
                 col_a, col_b = st.columns([1, 2])
                 
                 with col_a:
-                    if pd.notnull(bgg_id):
-                        img_url = get_bgg_image(int(float(bgg_id)))
-                        if img_url:
-                            st.image(img_url, use_container_width=True)
-                        else:
-                            st.write("🖼️ (Image not found)")
+                    if img_url:
+                        st.image(img_url, use_container_width=True)
+                    else:
+                        st.markdown("### 🖼️\n*Image unavailable*")
                 
                 with col_b:
                     st.header(f"Game selected: **{winner}**!")
-                    
-                    # --- Metadata Display ---
                     try:
                         current_chips_val = winner_data[wtp_col] if selected_bag_name == "Want To Play" else winner_data[chip_col]
                         w_chips = int(float(current_chips_val)) if pd.notnull(current_chips_val) else 1
                         prob = (w_chips / len(active_bag)) * 100
                         st.caption(f"Probability of selection: {prob:.2f}% ({w_chips} / {len(active_bag)} chips)")
 
-                        plays_val = winner_data[plays_col]
-                        if pd.notnull(plays_val):
-                            try:
-                                plays_num = int(float(plays_val))
-                                if plays_num > 0: st.caption(f"Previous plays: {plays_num}")
-                            except: pass
-
-                        rating = winner_data[rating_col]
-                        if pd.notnull(rating): st.caption(f"Average Rating: {rating}")
-
-                        catalogue = winner_data[cat_col]
-                        if pd.notnull(catalogue): st.caption(f"Catalogue Entry: {catalogue}")
+                        # Metadata
+                        for label, col in [("Previous plays", plays_col), ("Average Rating", rating_col), ("Catalogue Entry", cat_col)]:
+                            val = winner_data[col]
+                            if pd.notnull(val):
+                                st.caption(f"{label}: {val}")
 
                         if pd.notnull(bgg_id):
                             bgg_url = f"https://boardgamegeek.com/boardgame/{int(float(bgg_id))}"
                             st.markdown(f"<h6>🔗 <a href='{bgg_url}'>View on BoardGameGeek</a></h6>", unsafe_allow_html=True)
-                    except Exception:
+                    except:
                         st.caption("Metadata display encountered a minor issue.")
         else:
             st.warning(f"The {selected_bag_name} bag is empty!")
 
-    # --- BOTTOM OF SCREEN SECTION ---
+    # Footer Logic
     st.write("---")
-    
     with st.expander("🎲 View D20 Face Distribution"):
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Primary", "10 Faces", "1-10")
-        c2.metric("WTP", "6 Faces", "11-16")
-        c3.metric("Archive", "2 Faces", "17-18")
-        c4.metric("G. Hits", "2 Faces", "19-20")
-        
+        cols = st.columns(4)
+        labels = [("Primary", "10 Faces", "1-10"), ("WTP", "6 Faces", "11-16"), ("Archive", "2 Faces", "17-18"), ("G. Hits", "2 Faces", "19-20")]
+        for i, (name, faces, rng) in enumerate(labels):
+            cols[i].metric(name, faces, rng)
         st.write("Visual Odds Map: " + "🟦"*10 + "🟧"*6 + "🟥"*2 + "🟩"*2)
-        st.caption("Primary (Blue) | WTP (Orange) | Archive (Red) | Greatest Hits (Green)")
 
     with st.expander("View Full Library"):
         st.dataframe(df)
 
 except Exception as e:
-    st.error("Connection Error")
-    st.info(f"Technical details: {e}")
+    st.error(f"Connection Error: {e}")
