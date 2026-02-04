@@ -11,41 +11,36 @@ st.title("🎲 The Board Game Draw Bag")
 SHEET_ID = '1w2zW4_P2fPqE-BCjPaAJTWT7eoCksqUxnvyvfmgf5a8'
 SHEET_URL = f'https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv'
 
+# --- IMPROVED: Persistent BGG Fetcher ---
 def get_bgg_image(bgg_id):
     if not bgg_id or pd.isna(bgg_id): return None
     try:
         clean_id = str(int(float(bgg_id)))
-        # More descriptive headers often bypass BGG's blocks
+        # BGG is picky; these headers make us look like a real browser
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) BoardGamePicker/3.0',
-            'Referer': 'https://boardgamegeek.com'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         }
         url = f"https://boardgamegeek.com/xmlapi2/thing?id={clean_id}"
-        resp = requests.get(url, headers=headers, timeout=7)
         
-        if resp.status_code == 200:
-            root = ET.fromstring(resp.content)
-            # Try specific item image path
-            img = root.find(".//image")
-            if img is not None:
-                return img.text
-            # Fallback to thumbnail if image is missing
-            thumb = root.find(".//thumbnail")
-            if thumb is not None:
-                return thumb.text
-    except Exception as e:
-        print(f"BGG Error: {e}")
+        # We try up to 3 times because BGG often sends a "202 Accepted" (Busy) first
+        for _ in range(3):
+            resp = requests.get(url, headers=headers, timeout=10)
+            if resp.status_code == 200:
+                root = ET.fromstring(resp.content)
+                img = root.find(".//image")
+                if img is not None:
+                    return img.text
+                # Try thumbnail as fallback
+                thumb = root.find(".//thumbnail")
+                if thumb is not None:
+                    return thumb.text
+                return None
+            elif resp.status_code == 202:
+                time.sleep(1.5) # Wait for BGG to generate the data
+            else:
+                break
+    except: pass
     return None
-
-# ... inside your drawing logic where images are displayed ...
-
-            with c1:
-                if img: 
-                    # Use a caption to confirm we've got a live URL
-                    st.image(img, use_container_width=True)
-                else: 
-                    # If it fails, show the ID so we can verify it
-                    st.warning(f"ID {int(float(row['BGG_ID']))}: Image not found")
 
 try:
     df = pd.read_csv(SHEET_URL)
@@ -56,7 +51,7 @@ try:
     for _, row in df.iterrows():
         name = str(row['Game'])
         try:
-            c = int(float(row['Chips'])) if pd.notnull(row[ 'Chips']) else 1
+            c = int(float(row['Chips'])) if pd.notnull(row['Chips']) else 1
             w = int(float(row['WTP_Count'])) if pd.notnull(row['WTP_Count']) else 0
         except: c, w = 1, 0
         cat = str(row['Cataloguing']).strip()
@@ -82,20 +77,27 @@ try:
         active_bag = bags[bag_name]
         if active_bag:
             winner = random.choice(active_bag)
-            st.balloons()
             
-            row = df[df['Game'] == winner].iloc[0]
-            img = get_bgg_image(row['BGG_ID'])
+            # Show a temporary spinner while we fetch the image
+            with st.spinner(f"Fetching box art for {winner}..."):
+                row_data = df[df['Game'] == winner].iloc[0]
+                img_url = get_bgg_image(row_data['BGG_ID'])
+            
+            st.balloons()
             
             c1, c2 = st.columns([1, 2])
             with c1:
-                if img: st.image(img, use_container_width=True)
-                else: st.markdown("### 🖼️\n*No Image Found*")
+                if img_url: 
+                    st.image(img_url, use_container_width=True)
+                else: 
+                    st.markdown("### 🖼️\n*No Image Found*")
+                    if pd.notnull(row_data['BGG_ID']):
+                        st.caption(f"Checked BGG ID: {int(float(row_data['BGG_ID']))}")
             with c2:
                 st.header(winner)
                 st.write(f"**Bag:** {bag_name}")
-                if pd.notnull(row['BGG_ID']):
-                    b_id = int(float(row['BGG_ID']))
+                if pd.notnull(row_data['BGG_ID']):
+                    b_id = int(float(row_data['BGG_ID']))
                     st.markdown(f"[View on BGG](https://boardgamegeek.com/boardgame/{b_id})")
         else:
             st.warning("That bag is currently empty!")
