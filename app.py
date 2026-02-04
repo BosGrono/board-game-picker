@@ -150,6 +150,23 @@ try:
             st.table(display_df)
         else:
             st.write("No games currently found in the Greatest Hits bag.")
+
+    #Want To Play Expander
+    with st.expander("🧡 Want To Play"):
+        # Filter for games that have at least 1 WTP chip
+        wtp_display_df = df[pd.to_numeric(df[wtp_col], errors='coerce') >= 1].copy()
+        wtp_display_df[rating_col] = pd.to_numeric(wtp_display_df[rating_col], errors='coerce')
+        # Sort by WTP count (highest chance games first)
+        wtp_ranked = wtp_display_df.sort_values(by=wtp_col, ascending=False)
+
+        if not wtp_ranked.empty:
+            display_wtp = wtp_ranked[[game_col, wtp_col, rating_col]].reset_index(drop=True)
+            display_wtp.index += 1
+            display_wtp.index.name = "#"
+            # Format display: 1 decimal for rating, 0 for WTP chips
+            st.table(display_wtp.style.format({rating_col: "{:.1f}", wtp_col: "{:.0f}"}))
+        else:
+            st.write("No games currently in Want To Play.")
     
     with st.expander("View Full Library"):
         st.dataframe(df)
