@@ -128,6 +128,21 @@ try:
         st.write("Visual Odds Map: " + "🟦"*10 + "🟧"*6 + "🟥"*2 + "🟩"*2)
         st.caption("Primary (Blue) | WTP (Orange) | Archive (Red) | Greatest Hits (Green)")
 
+    with st.expander("🏆 Greatest Hits Hall of Fame (Sorted by Rating)"):
+        # Filter for Greatest Hits and ensure Rating is numeric for sorting
+        gh_df = df[df[cat_col].str.strip() == "Greatest Hits"].copy()
+        gh_df[rating_col] = pd.to_numeric(gh_df[rating_col], errors='coerce')
+        
+        # Sort descending by rating
+        gh_ranked = gh_df.sort_values(by=rating_col, ascending=False)
+        
+        if not gh_ranked.empty:
+            # Displaying as a clean table with only relevant columns
+            display_cols = [game_col, rating_col, plays_col]
+            st.table(gh_ranked[display_cols].reset_index(drop=True))
+        else:
+            st.write("No games currently found in the Greatest Hits bag.")
+    
     with st.expander("View Full Library"):
         st.dataframe(df)
 
