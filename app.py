@@ -114,7 +114,8 @@ try:
                     st.header(f"Game selected: **{winner}**!")
                     try:
                         chips_key = wtp_col if selected_bag_name == "Want To Play" else chip_col
-                        w_chips = int(float(winner_data[chips_key])) if pd.notnull(winner_data[chips_key]) else 1
+                        current_val = winner_data[chips_key]
+                        w_chips = int(float(current_val)) if pd.notnull(current_val) else 1
                         prob = (w_chips / len(active_bag)) * 100
                         st.caption(f"Probability: {prob:.2f}% ({w_chips} / {len(active_bag)} chips)")
                         for label, col in [("Plays", plays_col), ("Rating", rating_col), ("Catalogue", cat_col)]:
@@ -122,19 +123,5 @@ try:
                                 st.caption(f"{label}: {winner_data[col]}")
                         if pd.notnull(bgg_id):
                             bgg_url = f"https://boardgamegeek.com/boardgame/{int(float(bgg_id))}"
-                            st.markdown(f"<h6>🔗 <a href='{bgg_url}'>View on BGG</a></h6>", unsafe_allow_html=True)
-                    except:
-                        st.caption("Metadata display encountered a minor issue.")
-        else:
-            st.warning(f"The {selected_bag_name} bag is empty!")
-
-    # Footer
-    st.write("---")
-    with st.expander("🎲 View D20 Face Distribution"):
-        cols = st.columns(4)
-        data = [("Primary", "1-10"), ("WTP", "11-16"), ("Archive", "17-18"), ("G. Hits", "19-20")]
-        for i, (name, rng) in enumerate(data):
-            cols[i].metric(name, rng)
-        st.write("Visual Odds Map: " + "🟦"*10 + "🟧"*6 + "🟥"*2 + "🟩"*2)
-
-    with st.expander
+                            st.markdown(f"<h6>🔗 <a href='{bgg_url}'>View on
+                        
