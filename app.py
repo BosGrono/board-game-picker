@@ -129,17 +129,25 @@ try:
         st.caption("Primary (Blue) | WTP (Orange) | Archive (Red) | Greatest Hits (Green)")
 
     with st.expander("🏆 Greatest Hits"):
-        # Filter for Greatest Hits and ensure Rating is numeric for sorting
+        # 1. Filter and ensure Rating is numeric
         gh_df = df[df[cat_col].str.strip() == "Greatest Hits"].copy()
         gh_df[rating_col] = pd.to_numeric(gh_df[rating_col], errors='coerce')
         
-        # Sort descending by rating
+        # 2. Round the rating to 1 decimal place
+        gh_df[rating_col] = gh_df[rating_col].round(1)
+        
+        # 3. Sort descending by rating
         gh_ranked = gh_df.sort_values(by=rating_col, ascending=False)
         
         if not gh_ranked.empty:
-            # Displaying as a clean table with only relevant columns
-            display_cols = [game_col, rating_col, plays_col]
-            st.table(gh_ranked[display_cols].reset_index(drop=True))
+            # 4. Clean up the display
+            # We select the columns, reset the index, and add 1 so the rank starts at 1
+            display_df = gh_ranked[[game_col, rating_col, plays_col]].reset_index(drop=True)
+            display_df.index += 1 
+            display_df.index.name = "Rank"
+            
+            # Use st.table for a clean, non-interactive "Leaderboard" look
+            st.table(display_df)
         else:
             st.write("No games currently found in the Greatest Hits bag.")
     
