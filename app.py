@@ -23,6 +23,13 @@ try:
     cat_col = 'Cataloguing'
     wtp_col = 'WTP_Count'
 
+    # --- EFFICIENCY CLEANUP ---
+    # Filter to keep only rows where the 'Game' title is not blank
+    df = df[df[game_col].fillna('').str.strip() != ''].copy()
+    # Re-index to start at 1 instead of 0 globally
+    df.index = range(1, len(df) + 1)
+    # ---------------------------
+
     # 2. Build the Four Bags
     bags = {
         "Primary": [],
@@ -129,55 +136,35 @@ try:
         st.caption("Primary (Blue) | WTP (Orange) | Archive (Red) | Greatest Hits (Green)")
 
     with st.expander("🏆 Greatest Hits"):
-        # 1. Filter and ensure Rating is numeric
         gh_df = df[df[cat_col].str.strip() == "Greatest Hits"].copy()
         gh_df[rating_col] = pd.to_numeric(gh_df[rating_col], errors='coerce')
-        
-        # 2. Round the rating to 1 decimal place
         gh_df[rating_col] = gh_df[rating_col].round(1)
-        
-        # 3. Sort descending by rating
         gh_ranked = gh_df.sort_values(by=rating_col, ascending=False)
         
         if not gh_ranked.empty:
-            # 4. Clean up the display
-            # We select the columns, reset the index, and add 1 so the rank starts at 1
             display_df = gh_ranked[[game_col, rating_col, plays_col]].reset_index(drop=True)
             display_df.index += 1 
             display_df.index.name = "Rank"
-            
-            # Use st.table for a clean, non-interactive "Leaderboard" look
             st.table(display_df)
         else:
             st.write("No games currently found in the Greatest Hits bag.")
 
-    #Want To Play Expander
     with st.expander("🔥 Want To Play"):
-        # Filter for games that have at least 1 WTP chip
         wtp_display_df = df[pd.to_numeric(df[wtp_col], errors='coerce') >= 1].copy()
         wtp_display_df[rating_col] = pd.to_numeric(wtp_display_df[rating_col], errors='coerce')
-        # Sort by WTP count (highest chance games first)
         wtp_ranked = wtp_display_df.sort_values(by=wtp_col, ascending=False)
 
         if not wtp_ranked.empty:
             display_wtp = wtp_ranked[[game_col, wtp_col, rating_col]].reset_index(drop=True)
             display_wtp.index += 1
             display_wtp.index.name = "#"
-            # Format display: 1 decimal for rating, 0 for WTP chips
             st.table(display_wtp.style.format({rating_col: "{:.1f}", wtp_col: "{:.0f}"}))
         else:
             st.write("No games currently in Want To Play.")
     
     with st.expander("📒 View Full Library"):
-        # 1. Filter to keep only rows where the 'Game' title is not blank
-        # .fillna('') ensures we don't crash on nulls, and .str.strip() catches "space" entries
-        clean_df = df[df[game_col].fillna('').str.strip() != ''].copy()
-
-        # 2. Re-index to start at 1 instead of 0
-        clean_df.index = range(1, len(clean_df) + 1)
-
-        # 3. Display the polished version
-        st.dataframe(clean_df, use_container_width=True)
+        # We now simply display 'df' because it was already cleaned and re-indexed in Step 1
+        st.dataframe(df, use_container_width=True)
 
 except Exception as e:
     st.error("Connection Error")
