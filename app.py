@@ -169,7 +169,15 @@ try:
             st.write("No games currently in Want To Play.")
     
     with st.expander("📒 View Full Library"):
-        st.dataframe(df)
+        # 1. Filter to keep only rows where the 'Game' title is not blank
+        # .fillna('') ensures we don't crash on nulls, and .str.strip() catches "space" entries
+        clean_df = df[df[game_col].fillna('').str.strip() != ''].copy()
+
+        # 2. Re-index to start at 1 instead of 0
+        clean_df.index = range(1, len(clean_df) + 1)
+
+        # 3. Display the polished version
+        st.dataframe(clean_df, use_container_width=True)
 
 except Exception as e:
     st.error("Connection Error")
