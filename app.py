@@ -133,23 +133,21 @@ try:
         gh_df = df[df[cat_col].str.strip() == "Greatest Hits"].copy()
         gh_df[rating_col] = pd.to_numeric(gh_df[rating_col], errors='coerce')
         
-        # 2. Sort descending by rating
+        # 2. Round the rating to 1 decimal place
+        gh_df[rating_col] = gh_df[rating_col].round(1)
+        
+        # 3. Sort descending by rating
         gh_ranked = gh_df.sort_values(by=rating_col, ascending=False)
         
         if not gh_ranked.empty:
-            # 3. Select and prepare the display dataframe
+            # 4. Clean up the display
+            # We select the columns, reset the index, and add 1 so the rank starts at 1
             display_df = gh_ranked[[game_col, rating_col, plays_col]].reset_index(drop=True)
             display_df.index += 1 
             display_df.index.name = "Rank"
             
-            # 4. Use Styler to force 1 decimal place format
-            # '{:.1f}' means: float with 1 decimal point
-            formatted_table = display_df.style.format({
-                rating_col: "{:.1f}",
-                plays_col: "{:.0f}"  # This ensures plays don't show .0 either
-            })
-            
-            st.table(formatted_table)
+            # Use st.table for a clean, non-interactive "Leaderboard" look
+            st.table(display_df)
         else:
             st.write("No games currently found in the Greatest Hits bag.")
     
