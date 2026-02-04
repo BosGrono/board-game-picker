@@ -137,15 +137,19 @@ try:
 
     with st.expander("🏆 Greatest Hits"):
         gh_df = df[df[cat_col].str.strip() == "Greatest Hits"].copy()
+        # Convert to numeric to ensure we can sort and format it
         gh_df[rating_col] = pd.to_numeric(gh_df[rating_col], errors='coerce')
-        gh_df[rating_col] = gh_df[rating_col].round(1)
+        
+        # Sort descending by rating
         gh_ranked = gh_df.sort_values(by=rating_col, ascending=False)
         
         if not gh_ranked.empty:
             display_df = gh_ranked[[game_col, rating_col, plays_col]].reset_index(drop=True)
             display_df.index += 1 
             display_df.index.name = "Rank"
-            st.table(display_df)
+            
+            # --- THE FIX: Use .style.format to force 1 decimal place ---
+            st.table(display_df.style.format({rating_col: "{:.1f}"}))
         else:
             st.write("No games currently found in the Greatest Hits bag.")
 
