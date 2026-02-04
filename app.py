@@ -57,20 +57,6 @@ try:
         horizontal=True
     )
 
-    # --- CLEVER D20 FACE VIEW ---
-    # This creates a small visual map of the 20 faces
-    with st.expander("🎲 View D20 Face Distribution", expanded=(mode == "Roll the D20")):
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Primary", "10 Faces", "1-10")
-        c2.metric("WTP", "6 Faces", "11-16")
-        c3.metric("Archive", "2 Faces", "17-18")
-        c4.metric("G. Hits", "2 Faces", "19-20")
-        
-        # A simple visual progress bar trick to show 'territory'
-        st.write("Current Odds: " + 
-                 "🟦"*10 + "🟧"*6 + "🟥"*2 + "🟩"*2)
-        st.caption("Primary (Blue) | WTP (Orange) | Archive (Red) | Greatest Hits (Green)")
-
     st.write("---")
 
     # 4. Drawing Logic
@@ -127,6 +113,20 @@ try:
                     st.caption("Metadata display encountered a minor issue.")
         else:
             st.warning(f"The {selected_bag_name} bag is empty!")
+
+    # --- BOTTOM OF SCREEN SECTION ---
+    st.write("---")
+    
+    # Distribution View (Collapsed by Default)
+    with st.expander("🎲 View D20 Face Distribution"):
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Primary", "10 Faces", "1-10")
+        c2.metric("WTP", "6 Faces", "11-16")
+        c3.metric("Archive", "2 Faces", "17-18")
+        c4.metric("G. Hits", "2 Faces", "19-20")
+        
+        st.write("Visual Odds Map: " + "🟦"*10 + "🟧"*6 + "🟥"*2 + "🟩"*2)
+        st.caption("Primary (Blue) | WTP (Orange) | Archive (Red) | Greatest Hits (Green)")
 
     with st.expander("View Full Library"):
         st.dataframe(df)
