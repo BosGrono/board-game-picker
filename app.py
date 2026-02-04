@@ -15,20 +15,26 @@ def get_bgg_image(bgg_id):
     if not bgg_id or pd.isna(bgg_id): return None
     try:
         clean_id = str(int(float(bgg_id)))
-        # Using a slightly different API endpoint (v1) which sometimes has different rate limits
-        url = f"https://boardgamegeek.com/xmlapi/boardgame/{clean_id}"
+        # Switching back to v2 (thing), which is public and shouldn't 401
+        url = f"https://boardgamegeek.com/xmlapi2/thing?id={clean_id}"
         
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
-        
+        headers = {'User-Agent': 'Mozilla/5.0 (BoardGamePicker)'}
         resp = requests.get(url, headers=headers, timeout=10)
+        
         if resp.status_code == 200:
             root = ET.fromstring(resp.content)
-            # API v1 uses a slightly different tag structure
-            img = root.find(".//image")
-            if img is not None:
-                return img.text
+            # In API v2, image is inside 'item'
+            item = root.find("item")
+            if item is not None:
+                img_node = item.find("image")
+                if img_node is not None:
+                    img_url = img_node.text
+                    # Ensure the URL is absolute
+                    if img_url.startswith('//'):
+                        img_url = 'https:' + img_url
+                    return img_url
     except Exception as e:
-        st.error(f"Debug: Connection to BGG failed: {e}")
+        pass
     return None
 
 try:
@@ -68,7 +74,7 @@ try:
             winner = random.choice(active_bag)
             row_data = df[df['Game'] == winner].iloc[0]
             
-            with st.spinner(f"Contacting BGG for {winner}..."):
+            with st.spinner(f"Summoning {winner}..."):
                 img_url = get_bgg_image(row_data['BGG_ID'])
             
             st.balloons()
@@ -79,10 +85,9 @@ try:
                     st.image(img_url, use_container_width=True)
                 else: 
                     st.markdown("### 🖼️\n*No Image Found*")
-                    # SHOW DEBUG INFO
                     if pd.notnull(row_data['BGG_ID']):
                         test_id = int(float(row_data['BGG_ID']))
-                        st.caption(f"Debug Info: [Click to test BGG Link](https://boardgamegeek.com/xmlapi/boardgame/{test_id})")
+                        st.caption(f"Debug Info: [Click to test BGG v2 Link](https://boardgamegeek.com/xmlapi2/thing?id={test_id})")
             with c2:
                 st.header(winner)
                 st.write(f"**Bag:** {bag_name}")
