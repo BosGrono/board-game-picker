@@ -1,5 +1,4 @@
 import streamlit as st
-import pd as pd
 import pandas as pd
 import random
 import time
@@ -16,18 +15,13 @@ def get_bgg_image(bgg_id):
     if not bgg_id or pd.isna(bgg_id): return None
     try:
         clean_id = str(int(float(bgg_id)))
-        headers = {'User-Agent': 'BoardGamePickerApp/3.0'}
+        headers = {'User-Agent': 'BoardGamePicker/3.0'}
         url = f"https://boardgamegeek.com/xmlapi2/thing?id={clean_id}"
-        for attempt in range(2):
-            resp = requests.get(url, headers=headers, timeout=5)
-            if resp.status_code == 200:
-                root = ET.fromstring(resp.content)
-                item = root.find("item")
-                if item is not None:
-                    img = item.find("image")
-                    return img.text if img is not None else None
-            elif resp.status_code == 202:
-                time.sleep(1)
+        resp = requests.get(url, headers=headers, timeout=5)
+        if resp.status_code == 200:
+            root = ET.fromstring(resp.content)
+            img = root.find(".//image")
+            return img.text if img is not None else None
     except: pass
     return None
 
@@ -40,7 +34,7 @@ try:
     for _, row in df.iterrows():
         name = str(row['Game'])
         try:
-            c = int(float(row['Chips'])) if pd.notnull(row['Chips']) else 1
+            c = int(float(row['Chips'])) if pd.notnull(row[ 'Chips']) else 1
             w = int(float(row['WTP_Count'])) if pd.notnull(row['WTP_Count']) else 0
         except: c, w = 1, 0
         cat = str(row['Cataloguing']).strip()
@@ -74,15 +68,15 @@ try:
             c1, c2 = st.columns([1, 2])
             with c1:
                 if img: st.image(img, use_container_width=True)
-                else: st.markdown("### 🖼️\n*No Image*")
+                else: st.markdown("### 🖼️\n*No Image Found*")
             with c2:
                 st.header(winner)
                 st.write(f"**Bag:** {bag_name}")
                 if pd.notnull(row['BGG_ID']):
-                    b_url = f"https://boardgamegeek.com/boardgame/{int(float(row['BGG_ID']))}"
-                    st.markdown(f"[View on BGG]({b_url})")
+                    b_id = int(float(row['BGG_ID']))
+                    st.markdown(f"[View on BGG](https://boardgamegeek.com/boardgame/{b_id})")
         else:
-            st.warning("Bag is empty!")
+            st.warning("That bag is currently empty!")
 
     # 3. Footer
     st.divider()
@@ -93,4 +87,4 @@ try:
         st.dataframe(df)
 
 except Exception as e:
-    st.error(f"Error: {e}")
+    st.error(f"App Error: {e}")
