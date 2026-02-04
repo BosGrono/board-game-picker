@@ -128,7 +128,7 @@ try:
         st.write("Visual Odds Map: " + "🟦"*10 + "🟧"*6 + "🟥"*2 + "🟩"*2)
         st.caption("Primary (Blue) | WTP (Orange) | Archive (Red) | Greatest Hits (Green)")
 
-    with st.expander("🏆 Greatest Hits Hall of Fame (Sorted by Rating)"):
+    with st.expander("🏆 Greatest Hits"):
         # Filter for Greatest Hits and ensure Rating is numeric for sorting
         gh_df = df[df[cat_col].str.strip() == "Greatest Hits"].copy()
         gh_df[rating_col] = pd.to_numeric(gh_df[rating_col], errors='coerce')
