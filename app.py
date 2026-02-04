@@ -1,5 +1,3 @@
-#App code with bag selection radio buttons
-
 import streamlit as st
 import pandas as pd
 import random
@@ -51,7 +49,7 @@ try:
         if wtp_chips >= 1:
             bags["Want To Play"].extend([name] * wtp_chips)
 
-    # 3. USER AGENCY: Select Method (Now in the main body)
+    # 3. USER AGENCY: Selection Method
     st.subheader("Selection Method")
     mode = st.radio(
         "Choose how you want to pick a game:",
@@ -65,7 +63,6 @@ try:
     if st.button("🎰 Draw a Game!", use_container_width=True):
         selected_bag_name = ""
         
-        # Scenario A: User wants the Die to decide
         if mode == "Roll the D20":
             with st.spinner('Rolling D20...'):
                 time.sleep(1)
@@ -75,10 +72,7 @@ try:
                 elif die_roll <= 18: selected_bag_name = "Archive"
                 else: selected_bag_name = "Greatest Hits"
                 st.info(f"🎲 **D20 Result: {die_roll}** → Drawing from the **{selected_bag_name}** bag.")
-        
-        # Scenario B: User picked a specific bag
         else:
-            # Strip the 'Pick from ' part to get the bag name
             selected_bag_name = mode.replace("Pick from ", "")
 
         active_bag = bags[selected_bag_name]
@@ -118,7 +112,21 @@ try:
                 except Exception:
                     st.caption("Metadata display encountered a minor issue.")
         else:
-            st.warning(f"The {selected_bag_name} bag is empty! Check your spreadsheet data.")
+            st.warning(f"The {selected_bag_name} bag is empty!")
+
+    # --- BOTTOM OF SCREEN SECTION ---
+    st.write("---")
+    
+    # Distribution View (Collapsed by Default)
+    with st.expander("🎲 View D20 Face Distribution"):
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Primary", "10 Faces", "1-10")
+        c2.metric("WTP", "6 Faces", "11-16")
+        c3.metric("Archive", "2 Faces", "17-18")
+        c4.metric("G. Hits", "2 Faces", "19-20")
+        
+        st.write("Visual Odds Map: " + "🟦"*10 + "🟧"*6 + "🟥"*2 + "🟩"*2)
+        st.caption("Primary (Blue) | WTP (Orange) | Archive (Red) | Greatest Hits (Green)")
 
     with st.expander("View Full Library"):
         st.dataframe(df)
