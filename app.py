@@ -22,33 +22,23 @@ try:
     rating_col = 'Avg_Rating'
     cat_col = 'Cataloguing'
     wtp_col = 'WTP_Count'
+    wtp_tag_col = 'WTP Tag'  # <--- NEW COLUMN MAPPING
 
     # --- EFFICIENCY CLEANUP ---
-    # Filter to keep only rows where the 'Game' title is not blank
     df = df[df[game_col].fillna('').str.strip() != ''].copy()
-    # Re-index to start at 1 instead of 0 globally
     df.index = range(1, len(df) + 1)
-    # ---------------------------
 
     # 2. Build the Four Bags
-    bags = {
-        "Primary": [],
-        "Archive": [],
-        "Greatest Hits": [],
-        "Want To Play": []
-    }
+    bags = {"Primary": [], "Archive": [], "Greatest Hits": [], "Want To Play": []}
 
     for index, row in df.iterrows():
         name = str(row[game_col])
         try:
             chips = int(float(row[chip_col])) if pd.notnull(row[chip_col]) else 1
-        except:
-            chips = 1
+        except: chips = 1
         try:
-            wtp_val = row[wtp_col]
-            wtp_chips = int(float(wtp_val)) if pd.notnull(wtp_val) else 0
-        except:
-            wtp_chips = 0
+            wtp_chips = int(float(row[wtp_col])) if pd.notnull(row[wtp_col]) else 0
+        except: wtp_chips = 0
             
         catalog = str(row[cat_col]).strip()
         if catalog in bags:
@@ -94,23 +84,20 @@ try:
                 # --- Metadata Display ---
                 winner_data = df[df[game_col] == winner].iloc[0]
                 try:
+                    # Logic for displaying WTP Tags if drawn from that bag
+                    if selected_bag_name == "Want To Play":
+                        wtp_tags = winner_data[wtp_tag_col]
+                        if pd.notnull(wtp_tags):
+                            st.subheader(f"🔥 Requested by: {wtp_tags}")
+                    
                     current_chips_val = winner_data[wtp_col] if selected_bag_name == "Want To Play" else winner_data[chip_col]
                     w_chips = int(float(current_chips_val)) if pd.notnull(current_chips_val) else 1
                     prob = (w_chips / len(active_bag)) * 100
-                    st.caption(f"Probability of selection: {prob:.2f}% ({w_chips} / {len(active_bag)} chips)")
+                    st.caption(f"Probability: {prob:.2f}% ({w_chips} / {len(active_bag)} chips)")
 
-                    plays_val = winner_data[plays_col]
-                    if pd.notnull(plays_val):
-                        try:
-                            plays_num = int(float(plays_val))
-                            if plays_num > 0: st.caption(f"Previous plays: {plays_num}")
-                        except: pass
-
+                    # Standard Metadata
                     rating = winner_data[rating_col]
                     if pd.notnull(rating): st.caption(f"Average Rating: {rating}")
-
-                    catalogue = winner_data[cat_col]
-                    if pd.notnull(catalogue): st.caption(f"Catalogue Entry: {catalogue}")
 
                     bgg_id = winner_data[bgg_col]
                     if pd.notnull(bgg_id):
@@ -124,34 +111,18 @@ try:
     # --- BOTTOM OF SCREEN SECTION ---
     st.write("---")
     
-    # Distribution View (Collapsed by Default)
     with st.expander("🎲 View D20 Face Distribution"):
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Primary", "10 Faces", "1-10")
-        c2.metric("WTP", "6 Faces", "11-16")
-        c3.metric("Archive", "2 Faces", "17-18")
-        c4.metric("G. Hits", "2 Faces", "19-20")
-        
         st.write("Visual Odds Map: " + "🟦"*10 + "🟧"*6 + "🟥"*2 + "🟩"*2)
         st.caption("Primary (Blue) | WTP (Orange) | Archive (Red) | Greatest Hits (Green)")
 
     with st.expander("🏆 Greatest Hits"):
         gh_df = df[df[cat_col].str.strip() == "Greatest Hits"].copy()
-        # Convert to numeric to ensure we can sort and format it
         gh_df[rating_col] = pd.to_numeric(gh_df[rating_col], errors='coerce')
-        
-        # Sort descending by rating
         gh_ranked = gh_df.sort_values(by=rating_col, ascending=False)
-        
         if not gh_ranked.empty:
             display_df = gh_ranked[[game_col, rating_col, plays_col]].reset_index(drop=True)
             display_df.index += 1 
-            display_df.index.name = "Rank"
-            
-            # --- THE FIX: Use .style.format to force 1 decimal place ---
             st.table(display_df.style.format({rating_col: "{:.1f}"}))
-        else:
-            st.write("No games currently found in the Greatest Hits bag.")
 
     with st.expander("🔥 Want To Play"):
         wtp_display_df = df[pd.to_numeric(df[wtp_col], errors='coerce') >= 1].copy()
@@ -159,7 +130,8 @@ try:
         wtp_ranked = wtp_display_df.sort_values(by=wtp_col, ascending=False)
 
         if not wtp_ranked.empty:
-            display_wtp = wtp_ranked[[game_col, wtp_col, rating_col]].reset_index(drop=True)
+            # ADDED 'wtp_tag_col' to the list of displayed columns below
+            display_wtp = wtp_ranked[[game_col, wtp_col, wtp_tag_col, rating_col]].reset_index(drop=True)
             display_wtp.index += 1
             display_wtp.index.name = "#"
             st.table(display_wtp.style.format({rating_col: "{:.1f}", wtp_col: "{:.0f}"}))
@@ -167,7 +139,6 @@ try:
             st.write("No games currently in Want To Play.")
     
     with st.expander("📒 View Full Library"):
-        # We now simply display 'df' because it was already cleaned and re-indexed in Step 1
         st.dataframe(df, use_container_width=True)
 
 except Exception as e:
