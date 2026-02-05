@@ -88,7 +88,7 @@ try:
                     if selected_bag_name == "Want To Play":
                         wtp_tags = winner_data[wtp_tag_col]
                         if pd.notnull(wtp_tags):
-                            st.subheader(f"🔥 Requested by: {wtp_tags}")
+                            st.subheader(f"♟️ Want to play tag: {wtp_tags}")
                     
                     current_chips_val = winner_data[wtp_col] if selected_bag_name == "Want To Play" else winner_data[chip_col]
                     w_chips = int(float(current_chips_val)) if pd.notnull(current_chips_val) else 1
