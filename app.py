@@ -48,19 +48,19 @@ try:
 
     # --- 3. D20 CONFIGURATION (Hidden in Expander Logic) ---
     # We define these before the Draw Logic so the Button can see the values
-    with st.expander("🎲 D20 Face Distribution & Settings"):
+    with st.expander("⚙️ Bag Selection D20 Face Distribution & Settings"):
         st.write("Adjust how many faces of the D20 belong to each bag:")
         
         col1, col2, col3, col4 = st.columns(4)
-        f_primary = col1.number_input("Primary", 0, 20, 10)
-        f_wtp = col2.number_input("WTP", 0, 20, 6)
-        f_archive = col3.number_input("Archive", 0, 20, 2)
-        f_gh = col4.number_input("G. Hits", 0, 20, 2)
+        f_primary = col1.number_input("Primary - Blue", 0, 20, 10)
+        f_wtp = col2.number_input("WTP - Orange", 0, 20, 6)
+        f_archive = col3.number_input("Archive - Red", 0, 20, 2)
+        f_gh = col4.number_input("G. Hits - Green", 0, 20, 2)
 
         total_faces = f_primary + f_wtp + f_archive + f_gh
         
         if total_faces != 20:
-            st.warning(f"⚠️ Total faces = {total_faces}. For a true D20, this should equal 20!")
+            st.warning(f"⚠️ Total faces = {total_faces}. Sum must equal 20!")
         
         st.write("Visual Odds Map: " + "🟦"*f_primary + "🟧"*f_wtp + "🟥"*f_archive + "🟩"*f_gh)
 
