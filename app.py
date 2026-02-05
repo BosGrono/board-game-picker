@@ -108,10 +108,10 @@ try:
                 
                 winner_data = df[df[game_col] == winner].iloc[0]
                 try:
-                    if selected_bag_name == "Want To Play":
-                        wtp_tags = winner_data[wtp_tag_col]
-                        if pd.notnull(wtp_tags):
-                            st.subheader(f"♟️ Want to play tag: {wtp_tags}")
+                    # Check for WTP tags regardless of which bag it came from
+                    wtp_tags = winner_data[wtp_tag_col]
+                    if pd.notnull(wtp_tags) and str(wtp_tags).strip() != "":
+                        st.subheader(f"♟️ Want to play tag: {wtp_tags}")
                     
                     current_val = winner_data[wtp_col] if selected_bag_name == "Want To Play" else winner_data[chip_col]
                     w_chips = int(float(current_val)) if pd.notnull(current_val) else 1
