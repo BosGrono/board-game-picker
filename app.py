@@ -22,7 +22,7 @@ try:
     rating_col = 'Avg_Rating'
     cat_col = 'Cataloguing'
     wtp_col = 'WTP_Count'
-    wtp_tag_col = 'WTP Tag'  # <--- NEW COLUMN MAPPING
+    wtp_tag_col = 'WTP Tag' 
 
     # --- EFFICIENCY CLEANUP ---
     df = df[df[game_col].fillna('').str.strip() != ''].copy()
@@ -46,7 +46,25 @@ try:
         if wtp_chips >= 1:
             bags["Want To Play"].extend([name] * wtp_chips)
 
-    # 3. USER AGENCY: Selection Method
+    # --- 3. D20 CONFIGURATION (Hidden in Expander Logic) ---
+    # We define these before the Draw Logic so the Button can see the values
+    with st.expander("🎲 D20 Face Distribution & Settings"):
+        st.write("Adjust how many faces of the D20 belong to each bag:")
+        
+        col1, col2, col3, col4 = st.columns(4)
+        f_primary = col1.number_input("Primary", 0, 20, 10)
+        f_wtp = col2.number_input("WTP", 0, 20, 6)
+        f_archive = col3.number_input("Archive", 0, 20, 2)
+        f_gh = col4.number_input("G. Hits", 0, 20, 2)
+
+        total_faces = f_primary + f_wtp + f_archive + f_gh
+        
+        if total_faces != 20:
+            st.warning(f"⚠️ Total faces = {total_faces}. For a true D20, this should equal 20!")
+        
+        st.write("Visual Odds Map: " + "🟦"*f_primary + "🟧"*f_wtp + "🟥"*f_archive + "🟩"*f_gh)
+
+    # 4. USER AGENCY: Selection Method
     st.subheader("Selection Method")
     mode = st.radio(
         "Choose how you want to pick a game:",
@@ -56,18 +74,25 @@ try:
 
     st.write("---")
 
-    # 4. Drawing Logic
+    # 5. Drawing Logic
     if st.button("🎰 Draw a Game!", use_container_width=True):
         selected_bag_name = ""
         
         if mode == "Roll the D20":
             with st.spinner('Rolling D20...'):
                 time.sleep(1)
-                die_roll = random.randint(1, 20)
-                if die_roll <= 10: selected_bag_name = "Primary"
-                elif die_roll <= 16: selected_bag_name = "Want To Play"
-                elif die_roll <= 18: selected_bag_name = "Archive"
-                else: selected_bag_name = "Greatest Hits"
+                die_roll = random.randint(1, total_faces if total_faces > 0 else 20)
+                
+                # Logic using the dynamic inputs
+                if die_roll <= f_primary: 
+                    selected_bag_name = "Primary"
+                elif die_roll <= (f_primary + f_wtp): 
+                    selected_bag_name = "Want To Play"
+                elif die_roll <= (f_primary + f_wtp + f_archive): 
+                    selected_bag_name = "Archive"
+                else: 
+                    selected_bag_name = "Greatest Hits"
+                
                 st.info(f"🎲 **D20 Result: {die_roll}** → Drawing from the **{selected_bag_name}** bag.")
         else:
             selected_bag_name = mode.replace("Pick from ", "")
@@ -75,27 +100,24 @@ try:
         active_bag = bags[selected_bag_name]
 
         if len(active_bag) > 0:
-            with st.spinner(f'Rummaging through the {selected_bag_name} bag...'):
+            with st.spinner(f'Rummaging...'):
                 time.sleep(1.5)
                 winner = random.choice(active_bag)
                 st.balloons()
                 st.header(f"Game selected: **{winner}**!")
                 
-                # --- Metadata Display ---
                 winner_data = df[df[game_col] == winner].iloc[0]
                 try:
-                    # Logic for displaying WTP Tags if drawn from that bag
                     if selected_bag_name == "Want To Play":
                         wtp_tags = winner_data[wtp_tag_col]
                         if pd.notnull(wtp_tags):
                             st.subheader(f"♟️ Want to play tag: {wtp_tags}")
                     
-                    current_chips_val = winner_data[wtp_col] if selected_bag_name == "Want To Play" else winner_data[chip_col]
-                    w_chips = int(float(current_chips_val)) if pd.notnull(current_chips_val) else 1
+                    current_val = winner_data[wtp_col] if selected_bag_name == "Want To Play" else winner_data[chip_col]
+                    w_chips = int(float(current_val)) if pd.notnull(current_val) else 1
                     prob = (w_chips / len(active_bag)) * 100
                     st.caption(f"Probability: {prob:.2f}% ({w_chips} / {len(active_bag)} chips)")
 
-                    # Standard Metadata
                     rating = winner_data[rating_col]
                     if pd.notnull(rating): st.caption(f"Average Rating: {rating}")
 
@@ -104,16 +126,12 @@ try:
                         bgg_url = f"https://boardgamegeek.com/boardgame/{int(float(bgg_id))}"
                         st.markdown(f"<h6>🔗 <a href='{bgg_url}'>View on BoardGameGeek</a></h6>", unsafe_allow_html=True)
                 except Exception:
-                    st.caption("Metadata display encountered a minor issue.")
+                    st.caption("Metadata display issue.")
         else:
             st.warning(f"The {selected_bag_name} bag is empty!")
 
-    # --- BOTTOM OF SCREEN SECTION ---
+    # --- BOTTOM SECTION ---
     st.write("---")
-    
-    with st.expander("🎲 View D20 Face Distribution"):
-        st.write("Visual Odds Map: " + "🟦"*10 + "🟧"*6 + "🟥"*2 + "🟩"*2)
-        st.caption("Primary (Blue) | WTP (Orange) | Archive (Red) | Greatest Hits (Green)")
 
     with st.expander("🏆 Greatest Hits"):
         gh_df = df[df[cat_col].str.strip() == "Greatest Hits"].copy()
@@ -128,15 +146,10 @@ try:
         wtp_display_df = df[pd.to_numeric(df[wtp_col], errors='coerce') >= 1].copy()
         wtp_display_df[rating_col] = pd.to_numeric(wtp_display_df[rating_col], errors='coerce')
         wtp_ranked = wtp_display_df.sort_values(by=wtp_col, ascending=False)
-
         if not wtp_ranked.empty:
-            # ADDED 'wtp_tag_col' to the list of displayed columns below
             display_wtp = wtp_ranked[[game_col, wtp_col, wtp_tag_col, rating_col]].reset_index(drop=True)
             display_wtp.index += 1
-            display_wtp.index.name = "#"
             st.table(display_wtp.style.format({rating_col: "{:.1f}", wtp_col: "{:.0f}"}))
-        else:
-            st.write("No games currently in Want To Play.")
     
     with st.expander("📒 View Full Library"):
         st.dataframe(df, use_container_width=True)
