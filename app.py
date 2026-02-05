@@ -3,7 +3,6 @@ import pandas as pd
 import random
 import time
 
-# --- CONFIGURATION ---
 st.set_page_config(page_title="Game Night Picker", page_icon="🎲")
 st.title("🎲 The Board Game Draw Bag")
 
@@ -11,7 +10,7 @@ SHEET_ID = '1w2zW4_P2fPqE-BCjPaAJTWT7eoCksqUxnvyvfmgf5a8'
 SHEET_URL = f'https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv'
 
 try:
-    # 1. READ AND CLEAN (Efficiency Fix)
+    # 1. Read and Clean
     df = pd.read_csv(SHEET_URL)
     df.columns = df.columns.str.strip()
     
@@ -23,13 +22,13 @@ try:
     rating_col = 'Avg_Rating'
     cat_col = 'Cataloguing'
     wtp_col = 'WTP_Count'
-    wtp_tag_col = 'WTP Tag'
+    wtp_tag_col = 'WTP Tag'  # <--- NEW COLUMN MAPPING
 
-    # Filter out empty rows and set global index to start at 1
+    # --- EFFICIENCY CLEANUP ---
     df = df[df[game_col].fillna('').str.strip() != ''].copy()
     df.index = range(1, len(df) + 1)
 
-    # 2. BUILD THE BAGS
+    # 2. Build the Four Bags
     bags = {"Primary": [], "Archive": [], "Greatest Hits": [], "Want To Play": []}
 
     for index, row in df.iterrows():
@@ -47,7 +46,7 @@ try:
         if wtp_chips >= 1:
             bags["Want To Play"].extend([name] * wtp_chips)
 
-    # 3. UI: SELECTION METHOD
+    # 3. USER AGENCY: Selection Method
     st.subheader("Selection Method")
     mode = st.radio(
         "Choose how you want to pick a game:",
@@ -57,7 +56,7 @@ try:
 
     st.write("---")
 
-    # 4. DRAWING LOGIC
+    # 4. Drawing Logic
     if st.button("🎰 Draw a Game!", use_container_width=True):
         selected_bag_name = ""
         
@@ -76,7 +75,7 @@ try:
         active_bag = bags[selected_bag_name]
 
         if len(active_bag) > 0:
-            with st.spinner(f'Rummaging...'):
+            with st.spinner(f'Rummaging through the {selected_bag_name} bag...'):
                 time.sleep(1.5)
                 winner = random.choice(active_bag)
                 st.balloons()
@@ -84,35 +83,37 @@ try:
                 
                 # --- Metadata Display ---
                 winner_data = df[df[game_col] == winner].iloc[0]
-                
-                # Stats and Probabilities
                 try:
+                    # Logic for displaying WTP Tags if drawn from that bag
                     if selected_bag_name == "Want To Play":
                         wtp_tags = winner_data[wtp_tag_col]
                         if pd.notnull(wtp_tags):
-                            st.subheader(f"🔥 Requested by: {wtp_tags}")
+                            st.subheader(f"♟️ Want to play tag: {wtp_tags}")
                     
-                    current_chips = winner_data[wtp_col] if selected_bag_name == "Want To Play" else winner_data[chip_col]
-                    w_chips = int(float(current_chips)) if pd.notnull(current_chips) else 1
+                    current_chips_val = winner_data[wtp_col] if selected_bag_name == "Want To Play" else winner_data[chip_col]
+                    w_chips = int(float(current_chips_val)) if pd.notnull(current_chips_val) else 1
                     prob = (w_chips / len(active_bag)) * 100
-                    
-                    st.write(f"📊 **Win Chance:** {prob:.2f}% ({w_chips}/{len(active_bag)} chips)")
-                    st.write(f"⭐ **Avg Rating:** {winner_data[rating_col]}")
-                    
+                    st.caption(f"Probability: {prob:.2f}% ({w_chips} / {len(active_bag)} chips)")
+
+                    # Standard Metadata
+                    rating = winner_data[rating_col]
+                    if pd.notnull(rating): st.caption(f"Average Rating: {rating}")
+
                     bgg_id = winner_data[bgg_col]
                     if pd.notnull(bgg_id):
                         bgg_url = f"https://boardgamegeek.com/boardgame/{int(float(bgg_id))}"
                         st.markdown(f"<h6>🔗 <a href='{bgg_url}'>View on BoardGameGeek</a></h6>", unsafe_allow_html=True)
-                except:
-                    st.caption("Metadata display issues.")
+                except Exception:
+                    st.caption("Metadata display encountered a minor issue.")
         else:
             st.warning(f"The {selected_bag_name} bag is empty!")
 
-    # --- BOTTOM SECTION: EXPANDERS ---
+    # --- BOTTOM OF SCREEN SECTION ---
     st.write("---")
     
     with st.expander("🎲 View D20 Face Distribution"):
         st.write("Visual Odds Map: " + "🟦"*10 + "🟧"*6 + "🟥"*2 + "🟩"*2)
+        st.caption("Primary (Blue) | WTP (Orange) | Archive (Red) | Greatest Hits (Green)")
 
     with st.expander("🏆 Greatest Hits"):
         gh_df = df[df[cat_col].str.strip() == "Greatest Hits"].copy()
@@ -127,10 +128,15 @@ try:
         wtp_display_df = df[pd.to_numeric(df[wtp_col], errors='coerce') >= 1].copy()
         wtp_display_df[rating_col] = pd.to_numeric(wtp_display_df[rating_col], errors='coerce')
         wtp_ranked = wtp_display_df.sort_values(by=wtp_col, ascending=False)
+
         if not wtp_ranked.empty:
+            # ADDED 'wtp_tag_col' to the list of displayed columns below
             display_wtp = wtp_ranked[[game_col, wtp_col, wtp_tag_col, rating_col]].reset_index(drop=True)
             display_wtp.index += 1
+            display_wtp.index.name = "#"
             st.table(display_wtp.style.format({rating_col: "{:.1f}", wtp_col: "{:.0f}"}))
+        else:
+            st.write("No games currently in Want To Play.")
     
     with st.expander("📒 View Full Library"):
         st.dataframe(df, use_container_width=True)
