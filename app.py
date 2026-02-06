@@ -17,21 +17,29 @@ URL_PLAYED = f'https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=c
 try:
     # 1. READ AND CLEAN DATA
     
-    # Main Bag Data
+    # --- MAIN BAG DATA (Tab 1) ---
     df = pd.read_csv(URL_MAIN)
     df.columns = df.columns.str.strip()
     
-    # Played Table: Only Columns A & B (Game and Date)
-    # usecols=[0,1] picks the first two columns
+    # SAFETY CHECK: If 'Game' isn't in the main sheet, try to find it
+    if 'Game' not in df.columns:
+        st.error("Error: Could not find a column named 'Game' in the Main tab. Check your spreadsheet headers!")
+        st.stop()
+
+    # --- PLAYED TABLE (Tab 2) ---
+    # Only Columns A & B from gid=665086271
     played_df = pd.read_csv(URL_PLAYED, usecols=[0, 1])
     played_df.columns = played_df.columns.str.strip()
 
-    # Archive Table: Columns A, C, D, E, F | Headers on Row 2
-    # skiprows=1 makes Row 2 the header. usecols=[0, 2, 3, 4, 5] picks A, C, D, E, F
+    # --- ARCHIVE TABLE (Tab 3) ---
+    # Headers on Row 2, Columns A, C, D, E, F from gid=106807938
+    # NOTE: Since Row 2 is the header, skiprows=1 is correct. 
+    # If it still fails, try skiprows=2.
     archive_df = pd.read_csv(URL_ARCHIVE, skiprows=1, usecols=[0, 2, 3, 4, 5])
     archive_df.columns = archive_df.columns.str.strip()
 
-    # --- MAIN DF CLEANUP ---
+    # --- MAIN DF CLEANUP & COLUMN MAPPING ---
+    # We define these specifically for the main 'df'
     game_col = 'Game'
     chip_col = 'Chips'
     bgg_col = 'BGG_ID'
@@ -41,6 +49,7 @@ try:
     wtp_col = 'WTP_Count'
     wtp_tag_col = 'WTP Tag' 
 
+    # Clean the main library
     df = df[df[game_col].fillna('').str.strip() != ''].copy()
     df.index = range(1, len(df) + 1)
 
