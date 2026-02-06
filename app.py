@@ -9,38 +9,37 @@ st.title("🎲 The Board Game Draw Bag")
 # --- DATA SOURCE CONFIGURATION ---
 SHEET_ID = '1w2zW4_P2fPqE-BCjPaAJTWT7eoCksqUxnvyvfmgf5a8'
 
-# Tab URLs with specific GIDs
+# Use the specific GID for your Main tab (usually 0, but let's be explicit)
 URL_MAIN = f'https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv&gid=0'
 URL_ARCHIVE = f'https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv&gid=106807938'
 URL_PLAYED = f'https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv&gid=665086271'
 
 try:
-    # 1. READ AND CLEAN DATA
-    
-    # --- MAIN BAG DATA (Tab 1) ---
+    # 1. READ DATA
     df = pd.read_csv(URL_MAIN)
     df.columns = df.columns.str.strip()
     
-    # SAFETY CHECK: If 'Game' isn't in the main sheet, try to find it
-    if 'Game' not in df.columns:
-        st.error("Error: Could not find a column named 'Game' in the Main tab. Check your spreadsheet headers!")
-        st.stop()
+    # --- DIAGNOSTIC: REMOVE THIS ONCE FIXED ---
+    # st.write("Main Tab Columns Found:", list(df.columns)) 
+    # ------------------------------------------
 
-    # --- PLAYED TABLE (Tab 2) ---
-    # Only Columns A & B from gid=665086271
+    # Played Table: Columns A & B
     played_df = pd.read_csv(URL_PLAYED, usecols=[0, 1])
     played_df.columns = played_df.columns.str.strip()
 
-    # --- ARCHIVE TABLE (Tab 3) ---
-    # Headers on Row 2, Columns A, C, D, E, F from gid=106807938
-    # NOTE: Since Row 2 is the header, skiprows=1 is correct. 
-    # If it still fails, try skiprows=2.
+    # Archive Table: Headers on Row 2, Columns A, C, D, E, F
     archive_df = pd.read_csv(URL_ARCHIVE, skiprows=1, usecols=[0, 2, 3, 4, 5])
     archive_df.columns = archive_df.columns.str.strip()
 
-    # --- MAIN DF CLEANUP & COLUMN MAPPING ---
-    # We define these specifically for the main 'df'
-    game_col = 'Game'
+    # --- COLUMN MAPPING ---
+    # Check if 'Game' exists, if not, try to guess the first column
+    if 'Game' in df.columns:
+        game_col = 'Game'
+    else:
+        # If 'Game' isn't found, use the very first column name available
+        game_col = df.columns[0]
+        st.warning(f"⚠️ Column 'Game' not found. Using '{game_col}' as the game title.")
+
     chip_col = 'Chips'
     bgg_col = 'BGG_ID'
     plays_col = 'Recorded Plays'
@@ -49,10 +48,10 @@ try:
     wtp_col = 'WTP_Count'
     wtp_tag_col = 'WTP Tag' 
 
-    # Clean the main library
+    # 2. CLEAN MAIN DF
     df = df[df[game_col].fillna('').str.strip() != ''].copy()
     df.index = range(1, len(df) + 1)
-
+    
     # 2. BUILD THE BAGS
     bags = {"Primary": [], "Archive": [], "Greatest Hits": [], "Want To Play": []}
     for index, row in df.iterrows():
