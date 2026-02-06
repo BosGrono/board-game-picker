@@ -9,37 +9,28 @@ st.title("🎲 The Board Game Draw Bag")
 # --- DATA SOURCE CONFIGURATION ---
 SHEET_ID = '1w2zW4_P2fPqE-BCjPaAJTWT7eoCksqUxnvyvfmgf5a8'
 
-# Use the specific GID for your Main tab (usually 0, but let's be explicit)
+# Explicit GIDs for all tabs
 URL_MAIN = f'https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv&gid=0'
 URL_ARCHIVE = f'https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv&gid=106807938'
 URL_PLAYED = f'https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv&gid=665086271'
 
 try:
     # 1. READ DATA
-    df = pd.read_csv(URL_MAIN)
+    # If 'Chip Draw -->' was found, it means we need to skip the top row to find 'Game'
+    df = pd.read_csv(URL_MAIN, skiprows=1) 
     df.columns = df.columns.str.strip()
     
-    # --- DIAGNOSTIC: REMOVE THIS ONCE FIXED ---
-    # st.write("Main Tab Columns Found:", list(df.columns)) 
-    # ------------------------------------------
-
     # Played Table: Columns A & B
     played_df = pd.read_csv(URL_PLAYED, usecols=[0, 1])
     played_df.columns = played_df.columns.str.strip()
 
-    # Archive Table: Headers on Row 2, Columns A, C, D, E, F
+    # Archive Table: Headers on Row 2
     archive_df = pd.read_csv(URL_ARCHIVE, skiprows=1, usecols=[0, 2, 3, 4, 5])
     archive_df.columns = archive_df.columns.str.strip()
 
     # --- COLUMN MAPPING ---
-    # Check if 'Game' exists, if not, try to guess the first column
-    if 'Game' in df.columns:
-        game_col = 'Game'
-    else:
-        # If 'Game' isn't found, use the very first column name available
-        game_col = df.columns[0]
-        st.warning(f"⚠️ Column 'Game' not found. Using '{game_col}' as the game title.")
-
+    # Now that we've skipped the header, these should match perfectly
+    game_col = 'Game'
     chip_col = 'Chips'
     bgg_col = 'BGG_ID'
     plays_col = 'Recorded Plays'
@@ -49,8 +40,13 @@ try:
     wtp_tag_col = 'WTP Tag' 
 
     # 2. CLEAN MAIN DF
-    df = df[df[game_col].fillna('').str.strip() != ''].copy()
-    df.index = range(1, len(df) + 1)
+    # We check if game_col actually exists now to prevent the Connection Error
+    if game_col in df.columns:
+        df = df[df[game_col].fillna('').str.strip() != ''].copy()
+        df.index = range(1, len(df) + 1)
+    else:
+        st.error(f"Still can't find '{game_col}'. Found these instead: {list(df.columns)}")
+        st.stop()
     
     # 2. BUILD THE BAGS
     bags = {"Primary": [], "Archive": [], "Greatest Hits": [], "Want To Play": []}
