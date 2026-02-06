@@ -6,15 +6,32 @@ import time
 st.set_page_config(page_title="Game Night Picker", page_icon="🎲")
 st.title("🎲 The Board Game Draw Bag")
 
+# --- DATA SOURCE CONFIGURATION ---
 SHEET_ID = '1w2zW4_P2fPqE-BCjPaAJTWT7eoCksqUxnvyvfmgf5a8'
-SHEET_URL = f'https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv'
+
+# Tab URLs with specific GIDs
+URL_MAIN = f'https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv&gid=0'
+URL_ARCHIVE = f'https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv&gid=106807938'
+URL_PLAYED = f'https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv&gid=665086271'
 
 try:
-    # 1. Read and Clean
-    df = pd.read_csv(SHEET_URL)
+    # 1. READ AND CLEAN DATA
+    
+    # Main Bag Data
+    df = pd.read_csv(URL_MAIN)
     df.columns = df.columns.str.strip()
     
-    # Column Mapping
+    # Played Table: Only Columns A & B (Game and Date)
+    # usecols=[0,1] picks the first two columns
+    played_df = pd.read_csv(URL_PLAYED, usecols=[0, 1])
+    played_df.columns = played_df.columns.str.strip()
+
+    # Archive Table: Columns A, C, D, E, F | Headers on Row 2
+    # skiprows=1 makes Row 2 the header. usecols=[0, 2, 3, 4, 5] picks A, C, D, E, F
+    archive_df = pd.read_csv(URL_ARCHIVE, skiprows=1, usecols=[0, 2, 3, 4, 5])
+    archive_df.columns = archive_df.columns.str.strip()
+
+    # --- MAIN DF CLEANUP ---
     game_col = 'Game'
     chip_col = 'Chips'
     bgg_col = 'BGG_ID'
@@ -24,20 +41,16 @@ try:
     wtp_col = 'WTP_Count'
     wtp_tag_col = 'WTP Tag' 
 
-    # --- EFFICIENCY CLEANUP ---
     df = df[df[game_col].fillna('').str.strip() != ''].copy()
     df.index = range(1, len(df) + 1)
 
-    # 2. Build the Four Bags
+    # 2. BUILD THE BAGS
     bags = {"Primary": [], "Archive": [], "Greatest Hits": [], "Want To Play": []}
-
     for index, row in df.iterrows():
         name = str(row[game_col])
-        try:
-            chips = int(float(row[chip_col])) if pd.notnull(row[chip_col]) else 1
+        try: chips = int(float(row[chip_col])) if pd.notnull(row[chip_col]) else 1
         except: chips = 1
-        try:
-            wtp_chips = int(float(row[wtp_col])) if pd.notnull(row[wtp_col]) else 0
+        try: wtp_chips = int(float(row[wtp_col])) if pd.notnull(row[wtp_col]) else 0
         except: wtp_chips = 0
             
         catalog = str(row[cat_col]).strip()
@@ -46,81 +59,56 @@ try:
         if wtp_chips >= 1:
             bags["Want To Play"].extend([name] * wtp_chips)
 
-    # --- 3. D20 CONFIGURATION (Hidden in Expander Logic) ---
-    # We define these before the Draw Logic so the Button can see the values
+    # --- 3. D20 CONFIGURATION ---
     with st.expander("⚙️ Bag Selection D20 Face Distribution & Settings"):
-        st.write("Adjust how many faces of the D20 belong to each bag:")
-        
         col1, col2, col3, col4 = st.columns(4)
         f_primary = col1.number_input("Primary - Blue", 0, 20, 10)
         f_wtp = col2.number_input("WTP - Orange", 0, 20, 6)
         f_archive = col3.number_input("Archive - Red", 0, 20, 2)
         f_gh = col4.number_input("G. Hits - Green", 0, 20, 2)
-
         total_faces = f_primary + f_wtp + f_archive + f_gh
-        
         if total_faces != 20:
             st.warning(f"⚠️ Total faces = {total_faces}. Sum must equal 20!")
-        
         st.write("Visual Odds Map: " + "🟦"*f_primary + "🟧"*f_wtp + "🟥"*f_archive + "🟩"*f_gh)
 
-    # 4. USER AGENCY: Selection Method
+    # 4. SELECTION METHOD
     st.subheader("Selection Method")
-    mode = st.radio(
-        "Choose how you want to pick a game:",
-        ["Roll the D20", "Pick from Primary", "Pick from Want To Play", "Pick from Archive", "Pick from Greatest Hits"],
-        horizontal=True
-    )
-
+    mode = st.radio("Choose how you want to pick a game:", ["Roll the D20", "Pick from Primary", "Pick from Want To Play", "Pick from Archive", "Pick from Greatest Hits"], horizontal=True)
     st.write("---")
 
-    # 5. Drawing Logic
+    # 5. DRAWING LOGIC
     if st.button("🎰 Draw a Game!", use_container_width=True):
         selected_bag_name = ""
-        
         if mode == "Roll the D20":
             with st.spinner('Rolling D20...'):
                 time.sleep(1)
                 die_roll = random.randint(1, total_faces if total_faces > 0 else 20)
-                
-                # Logic using the dynamic inputs
-                if die_roll <= f_primary: 
-                    selected_bag_name = "Primary"
-                elif die_roll <= (f_primary + f_wtp): 
-                    selected_bag_name = "Want To Play"
-                elif die_roll <= (f_primary + f_wtp + f_archive): 
-                    selected_bag_name = "Archive"
-                else: 
-                    selected_bag_name = "Greatest Hits"
-                
+                if die_roll <= f_primary: selected_bag_name = "Primary"
+                elif die_roll <= (f_primary + f_wtp): selected_bag_name = "Want To Play"
+                elif die_roll <= (f_primary + f_wtp + f_archive): selected_bag_name = "Archive"
+                else: selected_bag_name = "Greatest Hits"
                 st.info(f"🎲 **D20 Result: {die_roll}** → Drawing from the **{selected_bag_name}** bag.")
         else:
             selected_bag_name = mode.replace("Pick from ", "")
 
         active_bag = bags[selected_bag_name]
-
         if len(active_bag) > 0:
             with st.spinner(f'Rummaging...'):
                 time.sleep(1.5)
                 winner = random.choice(active_bag)
                 st.balloons()
                 st.header(f"Game selected: **{winner}**!")
-                
                 winner_data = df[df[game_col] == winner].iloc[0]
                 try:
-                    # Check for WTP tags regardless of which bag it came from
                     wtp_tags = winner_data[wtp_tag_col]
                     if pd.notnull(wtp_tags) and str(wtp_tags).strip() != "":
                         st.subheader(f"♟️ Want to play tag: {wtp_tags}")
-                    
                     current_val = winner_data[wtp_col] if selected_bag_name == "Want To Play" else winner_data[chip_col]
                     w_chips = int(float(current_val)) if pd.notnull(current_val) else 1
                     prob = (w_chips / len(active_bag)) * 100
                     st.caption(f"Probability: {prob:.2f}% ({w_chips} / {len(active_bag)} chips)")
-
                     rating = winner_data[rating_col]
                     if pd.notnull(rating): st.caption(f"Average Rating: {rating}")
-
                     bgg_id = winner_data[bgg_col]
                     if pd.notnull(bgg_id):
                         bgg_url = f"https://boardgamegeek.com/boardgame/{int(float(bgg_id))}"
@@ -130,26 +118,29 @@ try:
         else:
             st.warning(f"The {selected_bag_name} bag is empty!")
 
-    # --- BOTTOM SECTION ---
+    # --- 6. DISPLAY SECTION (Expanders) ---
     st.write("---")
+
+    with st.expander("📂 User Ratings Archive"):
+        st.dataframe(archive_df, use_container_width=True, hide_index=True)
+
+    with st.expander("📅 Play History"):
+        # Sort history by date if possible (assuming column 2 is a date)
+        st.dataframe(played_df, use_container_width=True, hide_index=True)
 
     with st.expander("🏆 Greatest Hits"):
         gh_df = df[df[cat_col].str.strip() == "Greatest Hits"].copy()
         gh_df[rating_col] = pd.to_numeric(gh_df[rating_col], errors='coerce')
         gh_ranked = gh_df.sort_values(by=rating_col, ascending=False)
         if not gh_ranked.empty:
-            display_df = gh_ranked[[game_col, rating_col, plays_col]].reset_index(drop=True)
-            display_df.index += 1 
-            st.table(display_df.style.format({rating_col: "{:.1f}"}))
+            st.table(gh_ranked[[game_col, rating_col, plays_col]].reset_index(drop=True).style.format({rating_col: "{:.1f}"}))
 
     with st.expander("🔥 Want To Play"):
         wtp_display_df = df[pd.to_numeric(df[wtp_col], errors='coerce') >= 1].copy()
         wtp_display_df[rating_col] = pd.to_numeric(wtp_display_df[rating_col], errors='coerce')
         wtp_ranked = wtp_display_df.sort_values(by=wtp_col, ascending=False)
         if not wtp_ranked.empty:
-            display_wtp = wtp_ranked[[game_col, wtp_col, wtp_tag_col, rating_col]].reset_index(drop=True)
-            display_wtp.index += 1
-            st.table(display_wtp.style.format({rating_col: "{:.1f}", wtp_col: "{:.0f}"}))
+            st.table(wtp_ranked[[game_col, wtp_col, wtp_tag_col, rating_col]].reset_index(drop=True).style.format({rating_col: "{:.1f}", wtp_col: "{:.0f}"}))
     
     with st.expander("📒 View Full Library"):
         st.dataframe(df, use_container_width=True)
