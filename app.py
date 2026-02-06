@@ -16,28 +16,39 @@ URL_PLAYED = f'https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=c
 
 try:
     # 1. READ DATA
-    # If 'Chip Draw -->' was found, it means we need to skip the top row to find 'Game'
-    df = pd.read_csv(URL_MAIN, skiprows=1) 
+    # Based on your output, we'll try loading without skipping rows first.
+    # If 'Chip Draw -->' appears again, we know we need a different approach.
+    df = pd.read_csv(URL_MAIN) 
     df.columns = df.columns.str.strip()
     
-    # Played Table: Columns A & B
+    # --- DYNAMIC HEADER FIX ---
+    # If 'Game' isn't in the headers, it might be because the CSV is shifted.
+    if 'Game' not in df.columns:
+        # Let's try to reload it skipping just the VERY first row
+        df = pd.read_csv(URL_MAIN, skiprows=1)
+        df.columns = df.columns.str.strip()
+
+    # --- ARCHIVE & PLAYED (Keep as is since they were working) ---
     played_df = pd.read_csv(URL_PLAYED, usecols=[0, 1])
     played_df.columns = played_df.columns.str.strip()
 
-    # Archive Table: Headers on Row 2
     archive_df = pd.read_csv(URL_ARCHIVE, skiprows=1, usecols=[0, 2, 3, 4, 5])
     archive_df.columns = archive_df.columns.str.strip()
 
     # --- COLUMN MAPPING ---
-    # Now that we've skipped the header, these should match perfectly
     game_col = 'Game'
     chip_col = 'Chips'
     bgg_col = 'BGG_ID'
-    plays_col = 'Recorded Plays'
     rating_col = 'Avg_Rating'
     cat_col = 'Cataloguing'
     wtp_col = 'WTP_Count'
     wtp_tag_col = 'WTP Tag' 
+
+    # --- FINAL SAFETY CHECK ---
+    if game_col not in df.columns:
+        st.error(f"Mapping Failed. Current Headers: {list(df.columns)}")
+        st.info("Tip: Make sure the word 'Game' is in the top row of your Main tab.")
+        st.stop()
 
     # 2. CLEAN MAIN DF
     # We check if game_col actually exists now to prevent the Connection Error
